@@ -139,7 +139,7 @@ Open `http://localhost:8000` in your web browser.
 
 ### Option 3: GitHub Pages (Instant Cloud Hosting)
 
-Go to `https://laith261.github.io/appscreen-studio/`!
+Go to `https://laith261.github.io/appscreen-studio/`
 
 ---
 
