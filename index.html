@@ -339,10 +339,46 @@
     </div>
   </main>
 
+  <input type="file" id="dash-import-input" accept=".json,application/json" style="display:none;" />
+
   <script type="module">
-    import { customConfirm } from './js/ui/dialog.js';
+    import { customConfirm, customAlert } from './js/ui/dialog.js';
+    import { idbListProjects, idbDeleteProject, idbSaveProject, idbGetProject } from './js/features/storage/persistenceManager.js';
 
     const container = document.getElementById('dash-dynamic-content');
+    const importInput = document.getElementById('dash-import-input');
+
+    // Handle project file import (.json)
+    importInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const projectData = data.project || data;
+        if (!projectData.screens || !Array.isArray(projectData.screens)) {
+          customAlert({
+            title: 'Invalid Project File',
+            message: 'The selected JSON file does not contain valid AppScreen Studio screens data.',
+            type: 'danger'
+          });
+          return;
+        }
+        const newId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        await idbSaveProject(newId, projectData, data.thumbnail || null);
+        window.location.href = `editor.html?project=${encodeURIComponent(newId)}`;
+      } catch (err) {
+        customAlert({
+          title: 'Import Failed',
+          message: 'Could not read or parse project file: ' + (err.message || 'Invalid format'),
+          type: 'danger'
+        });
+      } finally {
+        importInput.value = '';
+      }
+    });
+
+    const triggerImport = () => importInput.click();
 
     const CURATED_TEMPLATES = [
       {
@@ -379,12 +415,14 @@
       }
     ];
 
-    function timeAgo(seconds) {
-      const diff = Date.now() / 1000 - seconds;
+    function timeAgo(timestamp) {
+      if (!timestamp) return 'recently';
+      const sec = timestamp > 1e11 ? Math.floor(timestamp / 1000) : timestamp;
+      const diff = Date.now() / 1000 - sec;
       if (diff < 60) return 'just now';
       if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
       if (diff < 86400) return `${Math.floor(diff / 3600)} h ago`;
-      return new Date(seconds * 1000).toLocaleDateString();
+      return new Date(sec * 1000).toLocaleDateString();
     }
 
     function renderTemplateCards() {
@@ -450,12 +488,9 @@
     async function load() {
       let projects = [];
       try {
-        const res = await fetch('api/projects.php');
-        if (res.ok) {
-          projects = await res.json();
-        }
+        projects = await idbListProjects();
       } catch (err) {
-        // Fallback: If running without PHP backend, projects will be empty
+        console.warn('Could not read projects from client storage:', err);
         projects = [];
       }
 
@@ -469,13 +504,17 @@
             </div>
             <h2 class="dash-hero-title">Create High-Converting <span class="highlight-text">Google Play</span> Screenshots</h2>
             <p class="dash-hero-desc">
-              Design professional app screenshots, 3D device mockups, promotional badges, and localized store listings in minutes — with zero design skills required.
+              Design professional app screenshots, 3D device mockups, promotional badges, and localized store listings in minutes — with zero server setup required.
             </p>
             <div class="dash-hero-actions">
               <a href="editor.html?new=true" class="btn btn-primary flex items-center gap-1.5" style="padding:10px 20px; font-weight:700;">
                 <span class="material-symbols-outlined" style="font-size:18px;">add_circle</span>
                 <span>Start Blank Project</span>
               </a>
+              <button id="btn-hero-import" type="button" class="btn btn-outline flex items-center gap-1.5" style="padding:10px 18px;">
+                <span class="material-symbols-outlined" style="font-size:18px;">upload_file</span>
+                <span>Import Project (.json)</span>
+              </button>
               <a href="editor.html?new=true&template=vibrant_saas" class="btn btn-outline flex items-center gap-1.5" style="padding:10px 18px;">
                 <span class="material-symbols-outlined" style="font-size:18px;">bolt</span>
                 <span>Launch with Popular SaaS Template</span>
@@ -486,6 +525,7 @@
           ${renderTemplateCards()}
           ${renderFeaturesGrid()}
         `;
+        document.getElementById('btn-hero-import')?.addEventListener('click', triggerImport);
         return;
       }
 
@@ -493,13 +533,20 @@
       container.innerHTML = `
         <div class="dash-head">
           <h2>Recent projects</h2>
-          <a href="editor.html?new=true" class="btn btn-primary btn-sm flex items-center gap-1.5">
-            <span class="material-symbols-outlined" style="font-size:16px;">add</span> New project
-          </a>
+          <div class="flex items-center gap-2">
+            <button id="btn-head-import" type="button" class="btn btn-outline btn-sm flex items-center gap-1.5">
+              <span class="material-symbols-outlined" style="font-size:16px;">upload_file</span> Import JSON
+            </button>
+            <a href="editor.html?new=true" class="btn btn-primary btn-sm flex items-center gap-1.5">
+              <span class="material-symbols-outlined" style="font-size:16px;">add</span> New project
+            </a>
+          </div>
         </div>
         <div id="dash-grid" class="dash-grid"></div>
         ${renderTemplateCards()}
       `;
+
+      document.getElementById('btn-head-import')?.addEventListener('click', triggerImport);
 
       const grid = document.getElementById('dash-grid');
       grid.replaceChildren(...projects.map(p => {
@@ -514,25 +561,47 @@
             <span class="dash-meta dash-langs"></span>
             <div class="dash-actions">
               <a class="btn btn-outline btn-sm flex items-center gap-1" href="${href}"><span class="material-symbols-outlined" style="font-size:15px;">open_in_new</span> Open</a>
-              <button class="btn btn-danger btn-sm flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:15px;">delete</span> Delete</button>
+              <button class="btn btn-outline btn-sm btn-backup flex items-center gap-1" title="Download JSON Backup"><span class="material-symbols-outlined" style="font-size:15px;">download</span> Backup</button>
+              <button class="btn btn-danger btn-sm btn-delete flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:15px;">delete</span></button>
             </div>
           </div>`;
         card.querySelector('.dash-name').textContent = p.name;
         card.querySelector('.dash-name').title = p.name;
         card.querySelector('.dash-langs').innerHTML = `<span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:2px;">language</span> ${(p.languages || ['en']).map(l => String(l).toUpperCase()).join(' · ')}`;
-        if (/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(p.thumbnail || '')) card.querySelector('.dash-thumb').style.backgroundImage = `url("${p.thumbnail}")`;
-        card.querySelector('button').onclick = async () => {
+        if (p.thumbnail && p.thumbnail.startsWith('data:image/')) {
+          card.querySelector('.dash-thumb').style.backgroundImage = `url("${p.thumbnail}")`;
+        }
+
+        // Direct JSON backup download
+        card.querySelector('.btn-backup').onclick = async () => {
+          const proj = await idbGetProject(p.id);
+          if (proj) {
+            const blob = new Blob([JSON.stringify(proj, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${(p.name || 'project').toLowerCase().replace(/\s+/g, '-')}-backup.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
+        };
+
+        // Delete project
+        card.querySelector('.btn-delete').onclick = async () => {
           const ok = await customConfirm({
             title: 'Delete Project',
-            message: `Delete "${p.name}"? This removes its file from the projects folder.`,
+            message: `Delete "${p.name}"? This removes the project from your browser storage.`,
             confirmText: 'Delete Project',
             danger: true,
             icon: 'delete'
           });
           if (!ok) return;
-          await fetch(`api/projects.php?id=${encodeURIComponent(p.id)}`, { method: 'DELETE' });
+          await idbDeleteProject(p.id);
           load();
         };
+
         return card;
       }));
     }

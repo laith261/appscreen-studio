@@ -72,15 +72,15 @@ Built entirely with **Vanilla JavaScript (ES Modules)**, **HTML5 Canvas**, and *
 - **Custom Context Menu:** Right-click anywhere on the canvas or elements to duplicate, delete, lock, hide, reorder layers, center, or reset rotation.
 - **All Screens Overview:** Full listing overview grid to review your entire Play Store presentation side-by-side.
 - **High-Resolution Export:** Instant export to Single PNG, Single JPEG, or a complete ZIP batch of all screens.
-- **Persistent State:** Automatic debounce saving to local project JSON files and localStorage fallback.
+- **100% Serverless & Offline:** Zero backend or database required. All projects and assets auto-save to browser `IndexedDB` with instant `localStorage` caching and `.json` import/export.
 
 ---
 
 ## 🛠️ Architecture & Tech Stack
 
 ```
-appscreen/
-├── index.html                  # Projects dashboard
+appscreen-studio/
+├── index.html                  # Projects dashboard & template launcher
 ├── editor.html                 # Main studio interface
 ├── css/
 │   ├── style.css               # Core layout, themes, and Material Symbols styling
@@ -95,41 +95,53 @@ appscreen/
 │   │   ├── theme/              # Studio themes and curated color palettes
 │   │   ├── templates/          # Ready listing templates and saved custom designs
 │   │   ├── translation/        # Multi-language copy builder and AI translation service
-│   │   └── export/             # High-res canvas export and ZIP batch packaging
+│   │   ├── storage/            # Serverless IndexedDB & localStorage persistence engine
+│   │   └── export/             # High-res canvas export and project JSON backup
 │   └── ui/                     # Left drawer dock, inspector, context menu, filmstrip, modals
-├── api/
-│   └── projects.php            # Lightweight JSON-based project storage API
-├── projects/                   # Saved project JSON storage (git-ignored)
 └── tests/                      # Automated unit test suite
 ```
 
 - **Frontend:** Pure Vanilla JavaScript (ES6 Modules), HTML5 Canvas 2D API. No bundler or build step required!
+- **Storage:** 100% client-side `IndexedDB` with `localStorage` instant cache and `.json` backup/restore.
+- **Hosting:** 100% Static — deploy to GitHub Pages, Cloudflare Pages, Vercel, Netlify, or any static host with zero configuration.
 - **Icons:** Google Material Symbols Outlined.
-- **Backend (Optional):** PHP 7.4+ for local JSON file persistence (runs seamlessly on XAMPP, Apache, or PHP built-in server).
 
 ---
 
 ## 🚀 Getting Started
 
-### Option 1: PHP Built-in Server (Fastest)
+Because **AppScreen Studio** is completely serverless with zero build step, you can run it locally with any static HTTP server or open it directly:
 
-Clone the repository and start the server:
+### Option 1: Quick Local Server (Node.js)
 
 ```bash
-git clone https://github.com/<your-username>/appscreen.git
-cd appscreen
-php -S localhost:8000
+git clone https://github.com/laith261/appscreen-studio.git
+cd appscreen-studio
+npm start
+```
+
+Or using `npx serve`:
+
+```bash
+npx serve .
+```
+
+Open `http://localhost:3000` (or the port shown in your terminal) in your browser.
+
+### Option 2: Python Static Server
+
+```bash
+python3 -m http.server 8000
 ```
 
 Open `http://localhost:8000` in your web browser.
 
-### Option 2: XAMPP / Apache
+### Option 3: GitHub Pages (Instant Cloud Hosting)
 
-1. Place or clone this folder inside your web server root:
-   - **macOS / Linux:** `/Applications/XAMPP/xamppfiles/htdocs/appscreen` or `/var/www/html/appscreen`
-   - **Windows:** `C:\xampp\htdocs\appscreen`
-2. Start Apache from your XAMPP Control Panel.
-3. Open `http://localhost/appscreen/` in your browser.
+1. Go to your repository settings on GitHub (`Settings` > `Pages`).
+2. Under **Build and deployment** > **Source**, select `Deploy from a branch`.
+3. Choose branch `main` and folder `/(root)`.
+4. Click **Save**. Your studio will be live at `https://laith261.github.io/appscreen-studio/`!
 
 ---
 

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node tests/store.check.mjs && node tests/persistence.check.mjs && node tests/translation_manual.check.mjs && node tests/context_menu.check.mjs && node tests/dialog.check.mjs",
-    "start": "php -S localhost:8000"
+    "start": "npx --yes serve -l 8000"
   },
   "keywords": [
     "google-play",

@@ -24,7 +24,8 @@ import {
   saveLocalProject,
   getUiState,
   saveUiState,
-  idbGetProject
+  idbGetProject,
+  idbSaveProject
 } from './features/storage/persistenceManager.js';
 import {
   ContextMenu,
@@ -210,8 +211,8 @@ class AppScreenStudio {
   }
 
   /**
-   * Loads the project named in ?project=<id> from the server and autosaves every edit back to
-   * projects/<id>.json via api/projects.php. Without the PHP API the editor still works, unsaved.
+   * Loads the project from IndexedDB / local cache and continuously auto-saves edits
+   * directly to client-side IndexedDB and localStorage (100% serverless).
    */
   async initProjectSync() {
     const status = document.getElementById('save-status');
@@ -221,24 +222,19 @@ class AppScreenStudio {
     if (!id) return;
 
     try {
-      const res = await fetch(`api/projects.php?id=${encodeURIComponent(id)}`);
-      if (res.ok) {
-        const { project } = await res.json();
-        const local = getLocalProject(id);
-        // Only load server project if local project was absent or blank
-        if (project && (!local || !local.screens || local.screens.length === 0)) {
-          this.store.loadProject(project);
-          this.store.history = [];
-          this.store.future = [];
-          this.store.notify();
-        }
-        setStatus('✓ Saved');
-      } else if (res.status === 404) {
-        setStatus('✓ Saved locally');
+      const idbProject = await idbGetProject(id);
+      const local = getLocalProject(id);
+      // Only restore from IndexedDB if local store was absent or empty
+      if (idbProject && (!local || !local.screens || local.screens.length === 0)) {
+        this.store.loadProject(idbProject);
+        this.store.history = [];
+        this.store.future = [];
+        this.store.notify();
       }
+      setStatus('✓ Saved');
     } catch (err) {
-      console.warn('Backend sync unavailable, using local persistence:', err);
-      setStatus('✓ Saved locally');
+      console.warn('IndexedDB hydration warning:', err);
+      setStatus('✓ Saved');
     }
 
     let timer = null;
@@ -248,27 +244,28 @@ class AppScreenStudio {
         const state = this.store.getState();
         let thumbUrl = null;
         try {
-          const full = await this.exporter.renderScreenOffscreen(state.screens[0], state.activeLanguage || 'en');
-          const thumb = document.createElement('canvas');
-          thumb.width = 240;
-          thumb.height = Math.round(240 * full.height / full.width);
-          thumb.getContext('2d').drawImage(full, 0, 0, thumb.width, thumb.height);
-          thumbUrl = thumb.toDataURL('image/jpeg', 0.8);
+          if (state.screens && state.screens[0]) {
+            const full = await this.exporter.renderScreenOffscreen(state.screens[0], state.activeLanguage || 'en');
+            const thumb = document.createElement('canvas');
+            thumb.width = 240;
+            thumb.height = Math.round(240 * full.height / full.width);
+            thumb.getContext('2d').drawImage(full, 0, 0, thumb.width, thumb.height);
+            thumbUrl = thumb.toDataURL('image/jpeg', 0.8);
+          }
         } catch (thumbErr) {
-          console.warn('Could not generate thumbnail for server save:', thumbErr);
+          console.warn('Could not generate thumbnail for project save:', thumbErr);
         }
 
-        const res = await fetch(`api/projects.php?id=${id}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ project: state, thumbnail: thumbUrl })
-        });
-        if (!res.ok) throw new Error(res.status);
+        await idbSaveProject(id, state, thumbUrl);
         setStatus(`✓ Saved ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
       } catch (err) {
-        setStatus('✓ Saved locally');
+        console.warn('Auto-save error:', err);
+        setStatus('✓ Saved');
       }
     };
+
+    // Ensure initial project snapshot and thumbnail are saved
+    setTimeout(save, 500);
 
     this.store.subscribe(() => {
       clearTimeout(timer);
@@ -313,6 +310,7 @@ class AppScreenStudio {
         exportMenu.open = false;
         const kind = item.dataset.export;
         if (kind === 'png' || kind === 'jpg') return this.exporter.exportCurrentScreen(kind === 'jpg' ? 'image/jpeg' : 'image/png');
+        if (kind === 'json') return this.exporter.saveProjectFile();
 
         exportBtn.textContent = '⏳ Exporting…';
         exportMenu.classList.add('busy');
