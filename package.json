@@ -4,7 +4,7 @@
   "description": "Modern web studio for generating Google Play Store screenshots, realistic phone frames, multilingual localization copies, and Play Store feature graphics.",
   "type": "module",
   "scripts": {
-    "test": "node tests/store.check.mjs && node tests/persistence.check.mjs && node tests/translation_manual.check.mjs && node tests/context_menu.check.mjs",
+    "test": "node tests/store.check.mjs && node tests/persistence.check.mjs && node tests/translation_manual.check.mjs && node tests/context_menu.check.mjs && node tests/dialog.check.mjs",
     "start": "php -S localhost:8000"
   },
   "keywords": [

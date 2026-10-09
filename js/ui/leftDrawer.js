@@ -17,6 +17,7 @@ import { getLayerOrder, getLayerItem, isFixedLayer, ensureScreenDevices, getDevi
 import { guardedRender } from './renderGuard.js';
 import { activeDoc } from '../state/store.js';
 import { docSize } from '../canvas/compose.js';
+import { customAlert, customConfirm, customPrompt } from './dialog.js';
 
 export class LeftDrawer {
   /**
@@ -228,9 +229,15 @@ export class LeftDrawer {
   /**
    * Prompts the user to save the active screen layout as a reusable template.
    */
-  promptSaveCurrentDesign() {
+  async promptSaveCurrentDesign() {
     const defaultName = `My Layout ${getSavedDesigns().length + 1}`;
-    const name = window.prompt('Enter a name for this custom design template:', defaultName);
+    const name = await customPrompt({
+      title: 'Save Custom Design Template',
+      message: 'Enter a name for this custom design template:',
+      defaultValue: defaultName,
+      icon: 'bookmark_add',
+      confirmText: 'Save Template'
+    });
     if (name === null) return;
     const result = saveCurrentDesign(this.store, name);
     if (result) {
@@ -372,15 +379,28 @@ export class LeftDrawer {
           applyCustomDesign(this.store, design.id, false);
         };
 
-        card.querySelector('.btn-apply-saved-all').onclick = () => {
-          if (confirm(`Apply "${design.name}" across all screens in the project?`)) {
+        card.querySelector('.btn-apply-saved-all').onclick = async () => {
+          const confirmed = await customConfirm({
+            title: 'Apply to All Screens',
+            message: `Apply "${design.name}" across all screens in the project?`,
+            confirmText: 'Apply to All',
+            icon: 'palette'
+          });
+          if (confirmed) {
             applyCustomDesign(this.store, design.id, true);
           }
         };
 
-        card.querySelector('.btn-delete-saved-design').onclick = (e) => {
+        card.querySelector('.btn-delete-saved-design').onclick = async (e) => {
           e.stopPropagation();
-          if (confirm(`Delete the saved template "${design.name}"?`)) {
+          const confirmed = await customConfirm({
+            title: 'Delete Saved Template',
+            message: `Delete the saved template "${design.name}"? This action cannot be undone.`,
+            confirmText: 'Delete Template',
+            isDanger: true,
+            icon: 'delete'
+          });
+          if (confirmed) {
             deleteSavedDesign(design.id);
             this.renderDrawerContent();
           }
@@ -398,9 +418,15 @@ export class LeftDrawer {
   /**
    * Prompts the user to save current colors as a reusable palette.
    */
-  promptSaveCurrentColors() {
+  async promptSaveCurrentColors() {
     const count = getSavedColors().length + 1;
-    const name = window.prompt('Enter a name for this custom color palette:', `My Palette ${count}`);
+    const name = await customPrompt({
+      title: 'Save Custom Palette',
+      message: 'Enter a name for this custom color palette:',
+      defaultValue: `My Palette ${count}`,
+      icon: 'palette',
+      confirmText: 'Save Palette'
+    });
     if (name === null) return;
     const result = saveCurrentColors(this.store, name);
     if (result) {
@@ -604,15 +630,28 @@ export class LeftDrawer {
         applyCustomColor(this.store, pal.id, false);
       };
 
-      card.querySelector('.apply-saved-pal-all').onclick = () => {
-        if (confirm(`Apply palette "${pal.name}" across all screens?`)) {
+      card.querySelector('.apply-saved-pal-all').onclick = async () => {
+        const confirmed = await customConfirm({
+          title: 'Apply Palette to All Screens',
+          message: `Apply palette "${pal.name}" across all screens?`,
+          confirmText: 'Apply to All',
+          icon: 'palette'
+        });
+        if (confirmed) {
           applyCustomColor(this.store, pal.id, true);
         }
       };
 
-      card.querySelector('.btn-delete-saved-design').onclick = (e) => {
+      card.querySelector('.btn-delete-saved-design').onclick = async (e) => {
         e.stopPropagation();
-        if (confirm(`Delete saved color palette "${pal.name}"?`)) {
+        const confirmed = await customConfirm({
+          title: 'Delete Color Palette',
+          message: `Delete saved color palette "${pal.name}"? This action cannot be undone.`,
+          confirmText: 'Delete Palette',
+          isDanger: true,
+          icon: 'delete'
+        });
+        if (confirmed) {
           deleteSavedColor(pal.id);
           this.renderDrawerContent();
         }
@@ -1818,10 +1857,17 @@ export class LeftDrawer {
 
     wrap.querySelectorAll('.lang-copy-row').forEach(row => {
       const open = () => this.store.switchLanguage(row.dataset.code);
-      row.onclick = (e) => {
+      row.onclick = async (e) => {
         const remove = e.target.closest('[data-remove]')?.dataset.remove;
         if (!remove) return open();
-        if (confirm(`Delete the ${langInfo(remove).name} copy and all its screens?`)) this.store.removeLanguage(remove);
+        const confirmed = await customConfirm({
+          title: 'Delete Language Copy',
+          message: `Delete the ${langInfo(remove).name} copy and all its screens? This action cannot be undone.`,
+          confirmText: 'Delete Copy',
+          isDanger: true,
+          icon: 'delete'
+        });
+        if (confirmed) this.store.removeLanguage(remove);
       };
       row.onkeydown = (e) => { if (e.key === 'Enter') open(); };
     });

@@ -8,6 +8,7 @@ import { imageCache } from './deviceFrames.js';
 import { activeDoc, FEATURE_ID } from '../state/store.js';
 import { docSize } from './compose.js';
 import { getLayerOrder, getLayerItem, ensureScreenDevices } from '../state/layers.js';
+import { customAlert } from '../ui/dialog.js';
 
 /**
  * Validates, decodes and (if huge) downsizes an image file, and pre-caches it for canvas drawing.
@@ -19,7 +20,12 @@ export async function readImageFile(file, maxDimension = 2400) {
   if (!file) return null;
   const isImage = file.type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(file.name || '');
   if (!isImage) {
-    alert('Please select a valid image file (PNG, JPG, WebP, or SVG).');
+    customAlert({
+      title: 'Invalid File',
+      message: 'Please select a valid image file (PNG, JPG, WebP, or SVG).',
+      icon: 'image',
+      type: 'warning'
+    });
     return null;
   }
   try {
@@ -34,7 +40,12 @@ export async function readImageFile(file, maxDimension = 2400) {
     return { src, width: finalImg.naturalWidth, height: finalImg.naturalHeight };
   } catch (err) {
     console.error('Failed to process image upload:', err);
-    alert('Could not load the image. Please try a different PNG or JPG file.');
+    customAlert({
+      title: 'Image Load Error',
+      message: 'Could not load the image. Please try a different PNG or JPG file.',
+      icon: 'broken_image',
+      type: 'danger'
+    });
     return null;
   }
 }

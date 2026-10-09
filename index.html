@@ -44,7 +44,9 @@
     <div id="dash-grid" class="dash-grid"></div>
   </main>
 
-  <script>
+  <script type="module">
+    import { customConfirm } from './js/ui/dialog.js';
+
     const grid = document.getElementById('dash-grid');
 
     function timeAgo(seconds) {
@@ -90,7 +92,14 @@
         card.querySelector('.dash-langs').innerHTML = `<span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:2px;">language</span> ${(p.languages || ['en']).map(l => String(l).toUpperCase()).join(' · ')}`;
         if (/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(p.thumbnail || '')) card.querySelector('.dash-thumb').style.backgroundImage = `url("${p.thumbnail}")`;
         card.querySelector('button').onclick = async () => {
-          if (!confirm(`Delete "${p.name}"? This removes its file from the projects folder.`)) return;
+          const ok = await customConfirm({
+            title: 'Delete Project',
+            message: `Delete "${p.name}"? This removes its file from the projects folder.`,
+            confirmText: 'Delete Project',
+            danger: true,
+            icon: 'delete'
+          });
+          if (!ok) return;
           await fetch(`api/projects.php?id=${encodeURIComponent(p.id)}`, { method: 'DELETE' });
           load();
         };

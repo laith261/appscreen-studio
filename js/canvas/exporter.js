@@ -5,6 +5,7 @@
  */
 
 import { renderDocCanvas } from './compose.js';
+import { customAlert } from '../ui/dialog.js';
 
 export class Exporter {
   /**
@@ -123,10 +124,20 @@ export class Exporter {
         if (data && data.screens) {
           this.store.loadProject(data);
         } else {
-          alert('Invalid project file format.');
+          customAlert({
+            title: 'Import Error',
+            message: 'Invalid project file format. The file is missing required screens data.',
+            icon: 'error',
+            type: 'danger'
+          });
         }
       } catch (err) {
-        alert('Failed to parse project JSON file.');
+        customAlert({
+          title: 'Import Failed',
+          message: 'Failed to parse project JSON file. Please ensure it is a valid JSON export.',
+          icon: 'error',
+          type: 'danger'
+        });
       }
     };
     reader.readAsText(file);

@@ -4,6 +4,7 @@
  */
 
 import { FEATURE_ID } from '../state/store.js';
+import { customConfirm } from './dialog.js';
 
 export class ScreenSelector {
   /**
@@ -90,9 +91,16 @@ export class ScreenSelector {
         delBtn.className = 'thumb-action-btn danger';
         delBtn.title = 'Delete Screen';
         delBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px;">delete</span>';
-        delBtn.onclick = (e) => {
+        delBtn.onclick = async (e) => {
           e.stopPropagation();
-          if (confirm(`Delete ${screen.name}?`)) {
+          const ok = await customConfirm({
+            title: 'Delete Screen',
+            message: `Delete "${screen.name}"?`,
+            confirmText: 'Delete',
+            danger: true,
+            icon: 'delete'
+          });
+          if (ok) {
             this.store.deleteScreen(screen.id);
           }
         };

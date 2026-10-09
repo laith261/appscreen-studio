@@ -356,7 +356,13 @@ export class Store {
    */
   deleteScreen(screenId) {
     if (this.state.screens.length <= 1) {
-      alert('You must keep at least one screen in the project.');
+      if (typeof window !== 'undefined' && window.customAlert) {
+        window.customAlert({
+          title: 'Cannot Delete Screen',
+          message: 'You must keep at least one screen in the project.',
+          icon: 'warning'
+        });
+      }
       return;
     }
     this.update(state => {

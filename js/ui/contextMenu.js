@@ -6,6 +6,7 @@
 import { activeDoc, FEATURE_ID } from '../state/store.js';
 import { getLayerItem, getLayerOrder, ensureScreenDevices } from '../state/layers.js';
 import { docSize } from '../canvas/compose.js';
+import { customConfirm, customPrompt } from './dialog.js';
 
 export class ContextMenu {
   constructor() {
@@ -545,15 +546,21 @@ export function addTextLayer(store) {
 }
 
 /**
- * Renames a screen via prompt dialog.
+ * Renames a screen via custom prompt dialog.
  * @param {Object} store
  * @param {string} screenId
  */
-export function renameScreen(store, screenId) {
+export async function renameScreen(store, screenId) {
   const state = store.getState();
   const screen = state.screens.find((s) => s.id === screenId);
   if (!screen) return;
-  const newName = prompt('Enter screen name:', screen.name || '');
+  const newName = await customPrompt({
+    title: 'Rename Screen',
+    message: 'Enter screen name:',
+    defaultValue: screen.name || '',
+    icon: 'edit',
+    confirmText: 'Rename'
+  });
   if (newName && newName.trim()) {
     store.update((s) => {
       const target = s.screens.find((sc) => sc.id === screenId);
@@ -827,8 +834,15 @@ export function buildScreenCardContextMenuItems({ store, screen, totalScreens })
       label: 'Delete Screen',
       icon: 'delete',
       danger: true,
-      action: () => {
-        if (confirm(`Delete ${screen.name || 'this screen'}?`)) {
+      action: async () => {
+        const confirmed = await customConfirm({
+          title: 'Delete Screen',
+          message: `Delete ${screen.name || 'this screen'}? This action cannot be undone.`,
+          confirmText: 'Delete Screen',
+          isDanger: true,
+          icon: 'delete'
+        });
+        if (confirmed) {
           store.deleteScreen(screen.id);
         }
       }

@@ -6,6 +6,7 @@
 import { PLAY_STORE_TEMPLATES, DESIGN_IDEAS, applyTemplate, applyDesignIdea } from '../features/templates/templates.js';
 import { LISTING_PALETTES, themeManager } from '../features/theme/themeManager.js';
 import { getSavedDesigns, saveCurrentDesign, deleteSavedDesign, applyCustomDesign, generateDesignWireframeSvg } from '../features/templates/customDesigns.js';
+import { customConfirm, customPrompt } from './dialog.js';
 
 export class TemplatePickerModal {
   /**
@@ -84,9 +85,15 @@ export class TemplatePickerModal {
   /**
    * Prompts user for a template name and saves current screen.
    */
-  promptSaveCurrentDesign() {
+  async promptSaveCurrentDesign() {
     const defaultName = `My Layout ${getSavedDesigns().length + 1}`;
-    const name = window.prompt('Enter a name for this custom design template:', defaultName);
+    const name = await customPrompt({
+      title: 'Save Custom Design Template',
+      message: 'Enter a name for this custom design template:',
+      defaultValue: defaultName,
+      icon: 'bookmark_add',
+      confirmText: 'Save Template'
+    });
     if (name === null) return;
     const result = saveCurrentDesign(this.store, name);
     if (result) {
@@ -146,8 +153,14 @@ export class TemplatePickerModal {
         this.close();
       };
 
-      card.querySelector('.apply-design-all-btn').onclick = () => {
-        if (confirm(`Load all 4 design ideas into the project? This will create a 4-screen layout sequence.`)) {
+      card.querySelector('.apply-design-all-btn').onclick = async () => {
+        const confirmed = await customConfirm({
+          title: 'Load All Design Ideas',
+          message: 'Load all 4 design ideas into the project? This will create a 4-screen layout sequence.',
+          confirmText: 'Load All Ideas',
+          icon: 'view_carousel'
+        });
+        if (confirmed) {
           applyDesignIdea(this.store, idea.id, true);
           this.close();
         }
@@ -274,8 +287,14 @@ export class TemplatePickerModal {
         this.close();
       };
 
-      card.querySelector('.apply-all-btn').onclick = () => {
-        if (confirm(`Load all 4 screens of "${tpl.name}"? This will set up a complete 4-screen listing flow.`)) {
+      card.querySelector('.apply-all-btn').onclick = async () => {
+        const confirmed = await customConfirm({
+          title: `Apply Suite: ${tpl.name}`,
+          message: `Load all 4 screens of "${tpl.name}"? This will set up a complete 4-screen listing flow.`,
+          confirmText: 'Load All Screens',
+          icon: 'dashboard_customize'
+        });
+        if (confirmed) {
           applyTemplate(this.store, tpl.id, true);
           this.close();
         }
@@ -342,16 +361,29 @@ export class TemplatePickerModal {
         this.close();
       };
 
-      card.querySelector('.apply-saved-all-btn').onclick = () => {
-        if (confirm(`Apply custom design "${design.name}" to all screens in your project?`)) {
+      card.querySelector('.apply-saved-all-btn').onclick = async () => {
+        const confirmed = await customConfirm({
+          title: 'Apply to All Screens',
+          message: `Apply custom design "${design.name}" to all screens in your project?`,
+          confirmText: 'Apply to All',
+          icon: 'palette'
+        });
+        if (confirmed) {
           applyCustomDesign(this.store, design.id, true);
           this.close();
         }
       };
 
-      card.querySelector('.btn-delete-saved-design').onclick = (e) => {
+      card.querySelector('.btn-delete-saved-design').onclick = async (e) => {
         e.stopPropagation();
-        if (confirm(`Delete custom template "${design.name}"?`)) {
+        const confirmed = await customConfirm({
+          title: 'Delete Custom Template',
+          message: `Delete custom template "${design.name}"? This action cannot be undone.`,
+          confirmText: 'Delete Template',
+          isDanger: true,
+          icon: 'delete'
+        });
+        if (confirmed) {
           deleteSavedDesign(design.id);
           this.renderTemplates();
         }
