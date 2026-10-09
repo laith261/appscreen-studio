@@ -691,6 +691,28 @@ export class Inspector {
           <label class="form-label">Tilt (${tilt}°)</label>
           <input type="range" class="form-range" data-prop="rotation" min="-30" max="30" step="1" value="${tilt}" />
         </div>
+        <!-- Screen Background Options (Card vs Transparent / Remove Background) -->
+        <div class="form-group mb-3 pt-2.5 border-t border-slate-700/60">
+          <label class="form-label mb-1.5 flex items-center justify-between">
+            <span class="flex items-center gap-1.5 font-bold">
+              <span class="material-symbols-outlined text-indigo-400" style="font-size:16px;">auto_fix_high</span>
+              <span>Screen Background</span>
+            </span>
+          </label>
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <button type="button" class="btn btn-xs ${!item.removeBackground ? 'btn-primary' : 'btn-outline'}" id="showcase-bg-card">
+              Full Card
+            </button>
+            <button type="button" class="btn btn-xs ${item.removeBackground ? 'btn-primary' : 'btn-outline'}" id="showcase-bg-transparent">
+              Remove Background
+            </button>
+          </div>
+          <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+            <input type="checkbox" id="showcase-only-device" ${item.onlyDevice ? 'checked' : ''} />
+            <span>Show phone frame only (hide screen text)</span>
+          </label>
+        </div>
+
         <label class="flex items-center gap-2 text-sm">
           <input type="checkbox" id="showcase-shadow" ${item.shadow ?? true ? 'checked' : ''} /> Drop shadow
         </label>
@@ -702,6 +724,16 @@ export class Inspector {
       const rest = showcaseOrder(this.store.getState(), sc).filter(x => x !== id);
       rest.splice(Math.max(0, Math.min(rest.length, to)), 0, id);
       sc.order = rest;
+    });
+
+    container.querySelector('#showcase-bg-card')?.addEventListener('click', () => {
+      update(sc => { sc.removeBackground = false; sc.transparentBg = false; });
+    });
+    container.querySelector('#showcase-bg-transparent')?.addEventListener('click', () => {
+      update(sc => { sc.removeBackground = true; sc.transparentBg = true; });
+    });
+    container.querySelector('#showcase-only-device')?.addEventListener('change', (e) => {
+      update(sc => { sc.onlyDevice = e.target.checked; });
     });
 
     container.querySelectorAll('[data-prop]').forEach(input => {

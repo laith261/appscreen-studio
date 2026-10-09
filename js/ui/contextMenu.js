@@ -588,6 +588,8 @@ export function buildElementContextMenuItems({ store, elementId, screen, rendere
   if (isDevice) {
     const devIdx = (screen.devices || []).findIndex((d) => d.id === elementId);
     title = `Phone Frame ${devIdx >= 0 ? devIdx + 1 : ''}`.trim();
+  } else if (isShowcase) {
+    title = 'Screens Showcase';
   } else if (elementId === 'headline' || elementId === 'subtitle' || item?.type === 'text') {
     title = 'Text Layer';
   } else if (item?.type === 'image') {
@@ -755,6 +757,38 @@ export function buildElementContextMenuItems({ store, elementId, screen, rendere
         } catch (err) {
           console.warn('Context menu background removal failed:', err);
         }
+      }
+    });
+  }
+
+  if (isShowcase && item) {
+    items.push({ separator: true });
+    items.push({
+      id: 'showcase-toggle-bg',
+      label: item.removeBackground ? 'Show Full Card Background' : 'Remove Screen Background (Transparent)',
+      icon: 'auto_fix_high',
+      action: () => {
+        store.update(state => {
+          const sc = activeDoc(state);
+          if (sc?.showcase) {
+            const next = !sc.showcase.removeBackground;
+            sc.showcase.removeBackground = next;
+            sc.showcase.transparentBg = next;
+          }
+        });
+      }
+    });
+    items.push({
+      id: 'showcase-toggle-device',
+      label: item.onlyDevice ? 'Show Screen Text & Elements' : 'Show Phone Frames Only',
+      icon: 'smartphone',
+      action: () => {
+        store.update(state => {
+          const sc = activeDoc(state);
+          if (sc?.showcase) {
+            sc.showcase.onlyDevice = !sc.showcase.onlyDevice;
+          }
+        });
       }
     });
   }

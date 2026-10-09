@@ -26,10 +26,12 @@ export function docSize(state, doc) {
  * @param {{editor?: boolean}} opts editor = draw placeholders for empty texts
  * @returns {Promise<Object>} Hit-test bounds: { headline, subtitle, showcase }
  */
-export async function drawDocument(ctx, state, doc, lang, { editor = false } = {}) {
+export async function drawDocument(ctx, state, doc, lang, { editor = false, transparentBg = false, onlyDevice = false } = {}) {
   const { width, height } = docSize(state, doc);
   const bounds = {};
-  await drawBackground(ctx, doc.background, width, height);
+  if (!transparentBg) {
+    await drawBackground(ctx, doc.background, width, height);
+  }
 
   for (const id of getLayerOrder(doc)) {
     const item = getLayerItem(doc, id);
@@ -38,22 +40,22 @@ export async function drawDocument(ctx, state, doc, lang, { editor = false } = {
     if (id === 'device' || id.startsWith('device-') || item.isDevice) {
       renderDevice(ctx, item, item.image ? await loadCachedImage(item.image) : null);
     } else if (id === 'headline' || id === 'subtitle') {
-      bounds[id] = drawText(ctx, doc, id, width, lang, editor);
+      if (!onlyDevice) bounds[id] = drawText(ctx, doc, id, width, lang, editor);
     } else if (id === 'showcase') {
       bounds.showcase = await drawShowcase(ctx, state, item, lang);
     } else if (item.type === 'image') {
       drawImageItem(ctx, item, await loadCachedImage(item.src));
     } else if (item.type === 'text') {
-      bounds[id] = drawTextItem(ctx, item, width, lang, editor);
+      if (!onlyDevice) bounds[id] = drawTextItem(ctx, item, width, lang, editor);
     } else {
-      renderShape(ctx, item);
+      if (!onlyDevice) renderShape(ctx, item);
     }
   }
   return bounds;
 }
 
 /** Renders a document to its own full-size canvas. */
-export async function renderDocCanvas(state, doc, lang, opts) {
+export async function renderDocCanvas(state, doc, lang, opts = {}) {
   const { width, height } = docSize(state, doc);
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -152,19 +154,21 @@ function drawImageItem(ctx, item, img) {
 }
 
 /** Draws an image into a rectangle with optional rounded corners and drop shadow. */
-function roundedTile(ctx, img, x, y, w, h, radius, shadow) {
+function roundedTile(ctx, img, x, y, w, h, radius, shadow, transparentBg = false) {
   ctx.save();
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, Math.min(radius, w / 2, h / 2));
-  if (shadow) {
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-    ctx.shadowBlur = Math.max(12, h * 0.06);
-    ctx.shadowOffsetY = Math.max(6, h * 0.025);
-    ctx.fillStyle = '#000';
-    ctx.fill(); // casts the shadow under the tile
-    ctx.shadowColor = 'transparent';
+  if (!transparentBg) {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, Math.min(radius, w / 2, h / 2));
+    if (shadow) {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+      ctx.shadowBlur = Math.max(12, h * 0.06);
+      ctx.shadowOffsetY = Math.max(6, h * 0.025);
+      ctx.fillStyle = '#000';
+      ctx.fill(); // casts the shadow under the tile
+      ctx.shadowColor = 'transparent';
+    }
+    ctx.clip();
   }
-  ctx.clip();
   ctx.drawImage(img, x, y, w, h);
   ctx.restore();
 }
@@ -175,11 +179,13 @@ function roundedTile(ctx, img, x, y, w, h, radius, shadow) {
 const shotCache = new Map();
 
 /** Full-size render of a listing screen, cached until the screen (or format/language) changes. */
-export async function renderScreenShot(state, screen, lang) {
-  const key = `${lang}|${state.width}x${state.height}|${JSON.stringify(screen)}`;
+export async function renderScreenShot(state, screen, lang, opts = {}) {
+  const transparentBg = !!opts.transparentBg;
+  const onlyDevice = !!opts.onlyDevice;
+  const key = `${lang}|${state.width}x${state.height}|${transparentBg}|${onlyDevice}|${JSON.stringify(screen)}`;
   if (!shotCache.has(key)) {
     if (shotCache.size > 40) shotCache.clear();
-    shotCache.set(key, renderDocCanvas(state, screen, lang));
+    shotCache.set(key, renderDocCanvas(state, screen, lang, { transparentBg, onlyDevice }));
   }
   return shotCache.get(key);
 }
@@ -212,12 +218,16 @@ async function drawShowcase(ctx, state, item, lang) {
   const w = h * ratio;
   const total = screens.length ? screens.length * w + (screens.length - 1) * gap : w;
   const left = -total / 2, top = -h / 2;
-  const shots = await Promise.all(screens.map(s => renderScreenShot(state, s, lang)));
+
+  const removeBg = !!(item.removeBackground || item.transparentBg);
+  const onlyDevice = !!item.onlyDevice;
+
+  const shots = await Promise.all(screens.map(s => renderScreenShot(state, s, lang, { transparentBg: removeBg, onlyDevice })));
 
   ctx.save();
   ctx.translate(item.x, item.y);
   if (item.rotation) ctx.rotate(item.rotation * Math.PI / 180);
-  shots.forEach((shot, i) => roundedTile(ctx, shot, left + i * (w + gap), top, w, h, item.radius ?? 16, item.shadow ?? true));
+  shots.forEach((shot, i) => roundedTile(ctx, shot, left + i * (w + gap), top, w, h, removeBg ? 0 : (item.radius ?? 16), removeBg ? false : (item.shadow ?? true), removeBg));
   ctx.restore();
 
   return { x: item.x + left, y: item.y + top, width: total, height: h };
