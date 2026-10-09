@@ -559,6 +559,10 @@ class AppScreenStudio {
     range.addEventListener('input', (e) => {
       this.overview.setThumbHeight(Number(e.target.value));
     });
+
+    if (new URL(location.href).searchParams.get('overview') === 'true') {
+      setTimeout(() => setOpen(true), 200);
+    }
   }
 
   /**
