@@ -50,16 +50,35 @@ export async function readImageFile(file, maxDimension = 2400) {
   }
 }
 
+import { removeBackgroundFromDataUrl } from './backgroundRemoval.js';
+
 /**
  * Puts an uploaded app screenshot into the target phone frame (or active phone frame).
  * @param {File|Blob} file
  * @param {Object} store
- * @param {string|null} targetDeviceId
+ * @param {string|null} [targetDeviceId]
+ * @param {Object} [options]
+ * @param {boolean} [options.removeBackground=false]
  * @returns {Promise<boolean>} true on success
  */
-export async function processImageUpload(file, store, targetDeviceId = null) {
-  const image = await readImageFile(file);
+export async function processImageUpload(file, store, targetDeviceId = null, options = {}) {
+  let image = await readImageFile(file);
   if (!image) return false;
+
+  let originalSrc = null;
+  let bgRemoved = false;
+  if (options.removeBackground) {
+    try {
+      originalSrc = image.src;
+      const res = await removeBackgroundFromDataUrl(image.src, options.bgOptions || {});
+      if (res && res.src) {
+        image = { ...image, src: res.src };
+        bgRemoved = true;
+      }
+    } catch (bgErr) {
+      console.warn('Background removal on device upload failed, using original:', bgErr);
+    }
+  }
 
   store.update(state => {
     const doc = activeDoc(state);
@@ -91,6 +110,11 @@ export async function processImageUpload(file, store, targetDeviceId = null) {
     dev.hidden = false;
     dev.deleted = false;
     dev.image = image.src;
+    if (bgRemoved) {
+      dev.originalImage = originalSrc;
+      dev.bgRemoved = true;
+      dev.bgTolerance = options.bgOptions?.tolerance || 32;
+    }
     dev.imageFit = dev.imageFit || 'cover';
     dev.imageOffsetX = dev.imageOffsetX || 0;
     dev.imageOffsetY = dev.imageOffsetY || 0;
@@ -105,11 +129,32 @@ export async function processImageUpload(file, store, targetDeviceId = null) {
 
 /**
  * Adds an uploaded picture (logo, artwork…) as a movable layer on the active document, and selects it.
+ * Supports auto background removal for transparent logos and graphics.
+ * @param {File|Blob} file
+ * @param {Object} store
+ * @param {Object} [options]
+ * @param {boolean} [options.removeBackground=false]
+ * @param {Object} [options.bgOptions]
  * @returns {Promise<boolean>} true on success
  */
-export async function addImageItem(file, store) {
-  const image = await readImageFile(file, 1600);
+export async function addImageItem(file, store, options = {}) {
+  let image = await readImageFile(file, 1600);
   if (!image) return false;
+
+  let originalSrc = null;
+  let bgRemoved = false;
+  if (options.removeBackground) {
+    try {
+      originalSrc = image.src;
+      const res = await removeBackgroundFromDataUrl(image.src, options.bgOptions || {});
+      if (res && res.src) {
+        image = { ...image, src: res.src, width: res.width, height: res.height };
+        bgRemoved = true;
+      }
+    } catch (bgErr) {
+      console.warn('Background removal failed, keeping original:', bgErr);
+    }
+  }
 
   const id = `image-${Date.now()}`;
   store.update(state => {
@@ -122,10 +167,22 @@ export async function addImageItem(file, store) {
     // Freeze the current stacking so the new picture lands on top (documents without a saved order put shapes at the bottom)
     if (!doc.layerOrder) doc.layerOrder = getLayerOrder(doc);
     doc.shapes.push({
-      id, type: 'image', src: image.src,
-      x: Math.round(width / 2), y: Math.round(height / 2),
-      width: Math.round(image.width * fit), height: Math.round(image.height * fit),
-      scale: 1, rotation: 0, opacity: 1, radius: 0, shadow: false
+      id,
+      type: 'image',
+      src: image.src,
+      originalSrc: originalSrc || (bgRemoved ? originalSrc : null),
+      bgRemoved,
+      bgTolerance: options.bgOptions?.tolerance || 32,
+      bgFeather: options.bgOptions?.feather || 2,
+      x: Math.round(width / 2),
+      y: Math.round(height / 2),
+      width: Math.round(image.width * fit),
+      height: Math.round(image.height * fit),
+      scale: 1,
+      rotation: 0,
+      opacity: 1,
+      radius: 0,
+      shadow: false
     });
     state.activeElementId = id;
   });

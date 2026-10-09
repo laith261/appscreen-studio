@@ -11,6 +11,7 @@ import { processImageUpload } from '../canvas/imageUploader.js';
 import { activeDoc, FEATURE_ID } from '../state/store.js';
 import { showcaseOrder, renderScreenShot } from '../canvas/compose.js';
 import { setBackgroundImage, readImageFile } from '../canvas/imageUploader.js';
+import { removeBackgroundFromDataUrl } from '../canvas/backgroundRemoval.js';
 import { getLayerItem, ensureScreenDevices } from '../state/layers.js';
 
 export class Inspector {
@@ -775,6 +776,38 @@ export class Inspector {
         <label class="flex items-center gap-2 text-sm mb-3">
           <input type="checkbox" id="image-shadow" ${item.shadow ? 'checked' : ''} /> Drop shadow
         </label>
+
+        <!-- Background Removal Control -->
+        <div class="form-group mb-3 pt-2.5 border-t border-slate-700/60">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="form-label mb-0 flex items-center gap-1.5 font-bold">
+              <span class="material-symbols-outlined text-indigo-400" style="font-size:16px;">auto_fix_high</span>
+              <span>Background Removal</span>
+            </span>
+            ${item.bgRemoved ? `<button type="button" class="btn btn-outline btn-xs" id="image-restore-bg" title="Restore original image">Restore</button>` : ''}
+          </div>
+
+          ${item.bgRemoved ? `
+            <div class="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/25 mb-2">
+              <div class="flex justify-between items-center text-xs mb-1">
+                <span class="text-emerald-400 font-semibold flex items-center gap-1">
+                  <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span> Removed
+                </span>
+                <span class="text-slate-300 font-mono text-[11px]" id="image-tol-val">${item.bgTolerance || 32}% tolerance</span>
+              </div>
+              <input type="range" class="form-range" id="image-bg-tolerance" min="5" max="85" step="1" value="${item.bgTolerance || 32}" />
+              <div class="flex justify-between items-center text-[10px] text-slate-400 mt-1">
+                <span>Tight cutout</span>
+                <span>Deep cutout</span>
+              </div>
+            </div>
+          ` : `
+            <button type="button" class="btn btn-outline btn-sm w-full flex items-center justify-center gap-1.5 border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10" id="image-remove-bg">
+              <span class="material-symbols-outlined" style="font-size:16px;">auto_fix_high</span> Remove Background
+            </button>
+          `}
+        </div>
+
         <input type="file" accept="image/*" class="hidden" id="image-replace-file" />
         <div class="flex gap-2">
           <button type="button" class="btn btn-outline btn-sm flex-1" id="image-replace"><span class="material-symbols-outlined" style="font-size:15px;">refresh</span> Replace</button>
@@ -790,12 +823,76 @@ export class Inspector {
       input.oninput = () => update(it => { it[input.dataset.prop] = Number(input.value); });
     });
     container.querySelector('#image-shadow').onchange = (e) => update(it => { it.shadow = e.target.checked; });
+
+    // Background removal handlers
+    const removeBgBtn = container.querySelector('#image-remove-bg');
+    if (removeBgBtn) {
+      removeBgBtn.onclick = async () => {
+        removeBgBtn.textContent = 'Removing…';
+        try {
+          const orig = item.originalSrc || item.src;
+          const tol = item.bgTolerance || 32;
+          const res = await removeBackgroundFromDataUrl(orig, { tolerance: tol, feather: item.bgFeather || 2 });
+          update(it => {
+            it.originalSrc = orig;
+            it.src = res.src;
+            it.bgRemoved = true;
+            it.bgTolerance = tol;
+          });
+        } catch (err) {
+          console.warn('Background removal error:', err);
+        }
+      };
+    }
+
+    const restoreBgBtn = container.querySelector('#image-restore-bg');
+    if (restoreBgBtn) {
+      restoreBgBtn.onclick = () => {
+        update(it => {
+          if (it.originalSrc) {
+            it.src = it.originalSrc;
+            it.bgRemoved = false;
+          }
+        });
+      };
+    }
+
+    const tolRange = container.querySelector('#image-bg-tolerance');
+    if (tolRange) {
+      let tolTimer = null;
+      tolRange.oninput = (e) => {
+        const tol = parseInt(e.target.value, 10);
+        const label = container.querySelector('#image-tol-val');
+        if (label) label.textContent = `${tol}% tolerance`;
+        clearTimeout(tolTimer);
+        tolTimer = setTimeout(async () => {
+          const orig = item.originalSrc || item.src;
+          try {
+            const res = await removeBackgroundFromDataUrl(orig, { tolerance: tol, feather: item.bgFeather || 2 });
+            update(it => {
+              it.originalSrc = orig;
+              it.src = res.src;
+              it.bgTolerance = tol;
+              it.bgRemoved = true;
+            });
+          } catch (err) {
+            console.warn('Tolerance adjustment error:', err);
+          }
+        }, 80);
+      };
+    }
+
     const file = container.querySelector('#image-replace-file');
     container.querySelector('#image-replace').onclick = () => file.click();
     file.onchange = async () => {
       const image = await readImageFile(file.files[0], 1600);
       // Keep the on-canvas width, follow the new picture's proportions
-      if (image) update(it => { it.src = image.src; it.height = Math.round(it.width * image.height / image.width); });
+      if (image) update(it => {
+        it.src = image.src;
+        it.originalSrc = null;
+        it.bgRemoved = false;
+        it.height = Math.round(it.width * image.height / image.width);
+      });
     };
     container.querySelector('#image-delete').onclick = () => this.store.update(s => {
       const doc = activeDoc(s);

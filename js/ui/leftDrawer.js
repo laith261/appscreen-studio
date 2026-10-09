@@ -15,7 +15,7 @@ import { getSavedColors, saveCurrentColors, deleteSavedColor, applyCustomColor }
 import { processImageUpload, addImageItem } from '../canvas/imageUploader.js';
 import { getLayerOrder, getLayerItem, isFixedLayer, ensureScreenDevices, getDevices } from '../state/layers.js';
 import { guardedRender } from './renderGuard.js';
-import { activeDoc } from '../state/store.js';
+import { activeDoc, FEATURE_ID } from '../state/store.js';
 import { docSize } from '../canvas/compose.js';
 import { customAlert, customConfirm, customPrompt } from './dialog.js';
 
@@ -668,6 +668,7 @@ export class LeftDrawer {
    */
   renderImageTab(container) {
     const screen = this.store.getActiveScreen();
+    const isFeature = screen?.id === FEATURE_ID;
     const dev = screen?.device || {};
 
     const wrap = document.createElement('div');
@@ -675,6 +676,32 @@ export class LeftDrawer {
 
     wrap.innerHTML = `
       <input type="file" id="drawer-file-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden" />
+
+      ${isFeature ? `
+        <!-- Feature Graphic Dedicated Image & Logo Uploader -->
+        <div class="mb-4 p-3.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="material-symbols-outlined text-indigo-400" style="font-size:20px;">featured_video</span>
+            <h4 class="text-sm font-bold text-slate-100 mb-0">Feature Graphic (1024 × 500)</h4>
+          </div>
+          <p class="text-xs text-slate-300 mb-3">Add logos, app icons, 3D badges, or hero graphics directly to this banner.</p>
+
+          <label class="flex items-center gap-2 text-xs text-slate-200 font-semibold mb-3 cursor-pointer select-none bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/60">
+            <input type="checkbox" id="feature-add-image-remove-bg" checked />
+            <span class="material-symbols-outlined text-indigo-400" style="font-size:16px;">auto_fix_high</span>
+            <span>Remove background automatically</span>
+          </label>
+
+          <input type="file" id="drawer-feature-image-file" accept="image/*" class="hidden" />
+          <button type="button" class="btn btn-primary btn-sm w-full flex items-center justify-center gap-1.5 py-2 font-bold" id="drawer-feature-add-image">
+            <span class="material-symbols-outlined" style="font-size:16px;">add_photo_alternate</span> Add Image / Logo to Banner
+          </button>
+        </div>
+
+        <div class="mb-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
+          Phone Mockup Screenshot (Optional)
+        </div>
+      ` : ''}
 
       ${dev.image ? `
         <!-- Active Upload Preview Card -->
@@ -730,7 +757,27 @@ export class LeftDrawer {
         </div>
       `}
 
+      <label class="flex items-center gap-2 text-xs text-slate-300 mt-2 cursor-pointer select-none px-1">
+        <input type="checkbox" id="drawer-upload-remove-bg" />
+        <span class="material-symbols-outlined text-indigo-400" style="font-size:15px;">auto_fix_high</span>
+        <span>Remove screenshot background</span>
+      </label>
     `;
+
+    // Feature graphic image uploader wiring
+    const featureImgInput = wrap.querySelector('#drawer-feature-image-file');
+    const featureAddBtn = wrap.querySelector('#drawer-feature-add-image');
+    if (featureAddBtn && featureImgInput) {
+      featureAddBtn.onclick = () => featureImgInput.click();
+      featureImgInput.onchange = async () => {
+        if (featureImgInput.files && featureImgInput.files[0]) {
+          const removeBg = wrap.querySelector('#feature-add-image-remove-bg')?.checked ?? true;
+          await addImageItem(featureImgInput.files[0], this.store, { removeBackground: removeBg });
+          featureImgInput.value = '';
+          this.renderDrawerContent();
+        }
+      };
+    }
 
     // File Input & Upload Wiring
     const fileInput = wrap.querySelector('#drawer-file-input');
@@ -769,7 +816,8 @@ export class LeftDrawer {
         e.stopPropagation();
         dropZone.classList.remove('border-primary');
         if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
-          await processImageUpload(e.dataTransfer.files[0], this.store);
+          const removeBg = wrap.querySelector('#drawer-upload-remove-bg')?.checked || false;
+          await processImageUpload(e.dataTransfer.files[0], this.store, null, { removeBackground: removeBg });
           this.renderDrawerContent();
         }
       });
@@ -785,7 +833,8 @@ export class LeftDrawer {
     fileInput.onchange = async (e) => {
       if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
-        await processImageUpload(file, this.store);
+        const removeBg = wrap.querySelector('#drawer-upload-remove-bg')?.checked || false;
+        await processImageUpload(file, this.store, null, { removeBackground: removeBg });
         fileInput.value = '';
         this.renderDrawerContent();
       }
@@ -1540,7 +1589,12 @@ export class LeftDrawer {
 
     wrap.innerHTML = `
       <input type="file" accept="image/*" class="hidden" id="drawer-add-image-file" />
-      <button type="button" class="btn btn-primary btn-sm w-full mb-3 flex items-center justify-center gap-1.5" id="drawer-add-image"><span class="material-symbols-outlined" style="font-size:16px;">add_photo_alternate</span> Add image from computer</button>
+      <button type="button" class="btn btn-primary btn-sm w-full mb-2 flex items-center justify-center gap-1.5" id="drawer-add-image"><span class="material-symbols-outlined" style="font-size:16px;">add_photo_alternate</span> Add image from computer</button>
+      <label class="flex items-center gap-2 text-xs text-slate-300 mb-3 cursor-pointer select-none px-1">
+        <input type="checkbox" id="drawer-shapes-remove-bg" />
+        <span class="material-symbols-outlined text-indigo-400" style="font-size:15px;">auto_fix_high</span>
+        <span>Remove background automatically</span>
+      </label>
 
       <div class="shape-category-pills">
         <button class="pill-filter active" data-cat="all">All</button>
@@ -1555,7 +1609,8 @@ export class LeftDrawer {
     const addImageFile = wrap.querySelector('#drawer-add-image-file');
     wrap.querySelector('#drawer-add-image').onclick = () => addImageFile.click();
     addImageFile.onchange = async () => {
-      await addImageItem(addImageFile.files[0], this.store);
+      const removeBg = wrap.querySelector('#drawer-shapes-remove-bg')?.checked || false;
+      await addImageItem(addImageFile.files[0], this.store, { removeBackground: removeBg });
       addImageFile.value = '';
     };
 

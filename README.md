@@ -67,6 +67,7 @@ Built entirely with **Vanilla JavaScript (ES Modules)**, **HTML5 Canvas**, and *
 - **Ready Color Palettes:** Electric Indigo, Cyber Emerald, Sunset Coral, Ocean Cyan, Obsidian & Gold, and Clean Light.
 - **Save Custom Designs:** Save your unique canvas layouts and custom color palettes to reuse across projects.
 - **Play Store Feature Graphic Editor:** Dedicated 1024 × 500 banner canvas with multi-screen showcase arrangement.
+- **Intelligent Background Removal:** Pure client-side background eraser that automatically removes solid backgrounds from uploaded logos, app icons, and stickers with boundary flood fill, edge feathering, and real-time sensitivity controls.
 
 ### 6. ⚡ Production-Ready Productivity Tools
 - **Custom Context Menu:** Right-click anywhere on the canvas or elements to duplicate, delete, lock, hide, reorder layers, center, or reset rotation.

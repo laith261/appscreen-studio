@@ -6,6 +6,7 @@
 import { activeDoc, FEATURE_ID } from '../state/store.js';
 import { getLayerItem, getLayerOrder, ensureScreenDevices } from '../state/layers.js';
 import { docSize } from '../canvas/compose.js';
+import { removeBackgroundFromDataUrl } from '../canvas/backgroundRemoval.js';
 import { customConfirm, customPrompt } from './dialog.js';
 
 export class ContextMenu {
@@ -713,6 +714,49 @@ export function buildElementContextMenuItems({ store, elementId, screen, rendere
         action: () => removeDeviceScreenshot(store, elementId)
       });
     }
+  }
+
+  if (item?.type === 'image') {
+    items.push({ separator: true });
+    if (item.bgRemoved) {
+      items.push({
+        id: 'restore-image-bg',
+        label: 'Restore Original Image',
+        icon: 'undo',
+        action: () => {
+          store.update(state => {
+            const sc = activeDoc(state);
+            const target = sc?.shapes?.find(s => s.id === elementId);
+            if (target && target.originalSrc) {
+              target.src = target.originalSrc;
+              target.bgRemoved = false;
+            }
+          });
+        }
+      });
+    }
+    items.push({
+      id: 'remove-image-bg',
+      label: item.bgRemoved ? 'Re-apply Background Removal' : 'Remove Background',
+      icon: 'auto_fix_high',
+      action: async () => {
+        const orig = item.originalSrc || item.src;
+        try {
+          const res = await removeBackgroundFromDataUrl(orig, { tolerance: item.bgTolerance || 32, feather: item.bgFeather || 2 });
+          store.update(state => {
+            const sc = activeDoc(state);
+            const target = sc?.shapes?.find(s => s.id === elementId);
+            if (target) {
+              target.originalSrc = orig;
+              target.src = res.src;
+              target.bgRemoved = true;
+            }
+          });
+        } catch (err) {
+          console.warn('Context menu background removal failed:', err);
+        }
+      }
+    });
   }
 
   return items;
