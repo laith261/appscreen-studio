@@ -16,6 +16,7 @@ import { SUPPORTED_LANGUAGES, AI_PROVIDERS, getAiSettings, saveAiSettings, isAiR
 import { themeManager, STUDIO_THEMES } from './features/theme/themeManager.js';
 import { activeDoc } from './state/store.js';
 import { docSize } from './canvas/compose.js';
+import { applyTemplate } from './features/templates/templates.js';
 import {
   getLastProjectId,
   setLastProjectId,
@@ -55,10 +56,18 @@ class AppScreenStudio {
 
     if (isExplicitNew || !id) {
       id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const templateParam = url.searchParams.get('template');
       url.searchParams.delete('new');
+      url.searchParams.delete('template');
       url.searchParams.set('project', id);
       history.replaceState(null, '', url);
       setLastProjectId(id);
+
+      if (templateParam) {
+        applyTemplate(this.store, templateParam, true);
+        this.store.history = [];
+        this.store.future = [];
+      }
     } else {
       setLastProjectId(id);
       // Synchronously restore project from local cache before rendering any UI

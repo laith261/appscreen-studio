@@ -6,25 +6,201 @@
   <title>Projects - AppScreen Studio</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-  <link rel="stylesheet" href="css/style.css" />
-  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/style.css?v=42" />
+  <link rel="stylesheet" href="css/components.css?v=42" />
   <script>
     try { document.documentElement.setAttribute('data-theme', localStorage.getItem('appscreen_studio_theme') || 'dark'); } catch (e) {}
   </script>
   <style>
-    body { overflow: auto; height: auto; min-height: 100vh; }
-    .dash { max-width: 1200px; width: 100%; margin: 0 auto; padding: 32px 16px; }
+    body { overflow: auto; height: auto; min-height: 100vh; background: var(--bg-app); }
+    .dash { max-width: 1200px; width: 100%; margin: 0 auto; padding: 36px 20px 60px; }
     .dash-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; }
-    .dash-head h2 { font-size: 22px; font-weight: 800; }
-    .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
-    .dash-card { background: var(--bg-sidebar); border: 1px solid var(--border-strong); border-radius: var(--radius-md); overflow: hidden; display: flex; flex-direction: column; }
-    .dash-card:hover { border-color: var(--accent-primary); box-shadow: var(--shadow-glow); }
+    .dash-head h2 { font-size: 22px; font-weight: 800; color: var(--text-main); }
+    .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; margin-bottom: 48px; }
+    .dash-card { background: var(--bg-sidebar); border: 1px solid var(--border-strong); border-radius: var(--radius-md); overflow: hidden; display: flex; flex-direction: column; transition: all 0.2s ease; }
+    .dash-card:hover { border-color: var(--accent-primary); box-shadow: var(--shadow-glow); transform: translateY(-2px); }
     .dash-thumb { display: block; aspect-ratio: 9 / 16; background: var(--bg-card) center / contain no-repeat; }
-    .dash-body { padding: 12px; display: flex; flex-direction: column; gap: 4px; }
-    .dash-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main); text-decoration: none; }
+    .dash-body { padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+    .dash-name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main); text-decoration: none; }
     .dash-meta { font-size: 12px; color: var(--text-muted); }
-    .dash-actions { display: flex; gap: 8px; margin-top: 8px; }
-    .dash-empty { color: var(--text-muted); padding: 48px 0; text-align: center; }
+    .dash-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+    /* Hero Welcome Banner for Empty Dashboard */
+    .dash-hero {
+      position: relative;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(14, 165, 233, 0.08) 50%, rgba(15, 23, 42, 0.6));
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: var(--radius-lg, 18px);
+      padding: 40px 36px;
+      margin-bottom: 40px;
+      overflow: hidden;
+      box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.45);
+    }
+    .dash-hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      color: #a5b4fc;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 5px 14px;
+      border-radius: 9999px;
+      margin-bottom: 18px;
+    }
+    .dash-hero-title {
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 12px;
+      line-height: 1.25;
+      letter-spacing: -0.5px;
+    }
+    .dash-hero-desc {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 680px;
+      line-height: 1.6;
+      margin-bottom: 26px;
+    }
+    .dash-hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+    }
+
+    /* Template Cards Grid */
+    .dash-section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+    .dash-section-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+    .dash-template-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
+      margin-bottom: 48px;
+    }
+    .dash-template-card {
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md, 12px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      text-decoration: none;
+      color: inherit;
+    }
+    .dash-template-card:hover {
+      border-color: var(--accent-primary);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 28px -8px rgba(99, 102, 241, 0.35);
+    }
+    .dash-template-preview {
+      height: 110px;
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      padding: 14px;
+    }
+    .dash-template-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+    .dash-template-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+    .dash-template-cat {
+      font-size: 11px;
+      color: var(--accent-primary);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 4px;
+    }
+    .dash-template-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+    .dash-template-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 16px;
+      flex: 1;
+    }
+    .dash-template-btn {
+      width: 100%;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    /* Superpowers / Feature Highlights */
+    .dash-features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-top: 16px;
+    }
+    .dash-feature-card {
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md, 12px);
+      padding: 22px 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .dash-feature-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--accent-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .dash-feature-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 5px;
+    }
+    .dash-feature-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
   </style>
 </head>
 <body>
@@ -36,18 +212,51 @@
     </div>
   </header>
 
-  <main class="dash">
-    <div class="dash-head">
-      <h2>Recent projects</h2>
-      <a href="editor.html?new=true" class="btn btn-primary btn-sm"><span class="material-symbols-outlined" style="font-size:16px;">add</span> New project</a>
+  <main class="dash" id="dash-main">
+    <div id="dash-dynamic-content">
+      <!-- Injected by load() based on project presence -->
     </div>
-    <div id="dash-grid" class="dash-grid"></div>
   </main>
 
   <script type="module">
     import { customConfirm } from './js/ui/dialog.js';
 
-    const grid = document.getElementById('dash-grid');
+    const container = document.getElementById('dash-dynamic-content');
+
+    const CURATED_TEMPLATES = [
+      {
+        id: 'vibrant_saas',
+        name: 'Modern SaaS & Productivity',
+        cat: 'Productivity',
+        badge: 'Popular',
+        gradient: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+        desc: 'Vibrant indigo & purple gradients with clean floating device, rating badges, and team analytics.'
+      },
+      {
+        id: 'dark_fintech',
+        name: 'Fintech & Crypto Luxury',
+        cat: 'Finance',
+        badge: 'Trending',
+        gradient: 'linear-gradient(135deg, #090d16, #064e3b)',
+        desc: 'High-trust obsidian black & emerald glow with bank-grade security highlights and real-time cards.'
+      },
+      {
+        id: 'fitness_glow',
+        name: 'Fitness & Lifestyle Energy',
+        cat: 'Health & Fitness',
+        badge: 'Vibrant',
+        gradient: 'linear-gradient(135deg, #f43f5e, #f97316)',
+        desc: 'High-energy coral to sunset orange gradient with motivating goals, heart rate sync & nutrition.'
+      },
+      {
+        id: 'clean_pastel',
+        name: 'Clean Utility & Minimal',
+        cat: 'Utility',
+        badge: 'Minimal',
+        gradient: 'linear-gradient(135deg, #0284c7, #06b6d4)',
+        desc: 'Sky blue gradients, clean typography, soft dropshadows, and uncluttered device mockups.'
+      }
+    ];
 
     function timeAgo(seconds) {
       const diff = Date.now() / 1000 - seconds;
@@ -57,20 +266,121 @@
       return new Date(seconds * 1000).toLocaleDateString();
     }
 
+    function renderTemplateCards() {
+      return `
+        <div class="dash-section-title">
+          <span class="material-symbols-outlined" style="color:var(--accent-primary); font-size:20px;">dashboard_customize</span>
+          <span>Start with a Curated Template</span>
+        </div>
+        <div class="dash-section-sub">
+          Launch your screenshots instantly with professionally pre-designed layout suites, fonts, and device frames:
+        </div>
+        <div class="dash-template-grid">
+          ${CURATED_TEMPLATES.map(t => `
+            <a class="dash-template-card" href="editor.html?new=true&template=${encodeURIComponent(t.id)}">
+              <div class="dash-template-preview" style="background: ${t.gradient};">
+                <span class="dash-template-badge">${t.badge}</span>
+                <span class="material-symbols-outlined" style="font-size:28px; color:rgba(255,255,255,0.85);">smartphone</span>
+              </div>
+              <div class="dash-template-body">
+                <div class="dash-template-cat">${t.cat}</div>
+                <h3 class="dash-template-name">${t.name}</h3>
+                <p class="dash-template-desc">${t.desc}</p>
+                <span class="btn btn-outline btn-sm dash-template-btn">Use Template</span>
+              </div>
+            </a>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderFeaturesGrid() {
+      return `
+        <div class="dash-section-title" style="margin-top: 12px;">
+          <span class="material-symbols-outlined" style="color:var(--accent-secondary); font-size:20px;">stars</span>
+          <span>Studio Capabilities</span>
+        </div>
+        <div class="dash-features-grid">
+          <div class="dash-feature-card">
+            <div class="dash-feature-icon"><span class="material-symbols-outlined" style="font-size:24px;">view_in_ar</span></div>
+            <div>
+              <div class="dash-feature-title">Realistic Device Frames & Angles</div>
+              <div class="dash-feature-desc">Place your screenshots in modern phone bezels with 3D rotation, dropshadows, and custom device colors.</div>
+            </div>
+          </div>
+          <div class="dash-feature-card">
+            <div class="dash-feature-icon" style="color:var(--accent-success); background:rgba(16,185,129,0.15);"><span class="material-symbols-outlined" style="font-size:24px;">translate</span></div>
+            <div>
+              <div class="dash-feature-title">Multilingual Localization</div>
+              <div class="dash-feature-desc">Translate your store listings into 10+ languages with synchronized layout preservation and AI assistance.</div>
+            </div>
+          </div>
+          <div class="dash-feature-card">
+            <div class="dash-feature-icon" style="color:var(--accent-warning); background:rgba(245,158,11,0.15);"><span class="material-symbols-outlined" style="font-size:24px;">download</span></div>
+            <div>
+              <div class="dash-feature-title">Native Play Store Export</div>
+              <div class="dash-feature-desc">Export native 1080×1920 PNG/JPEG screenshots and 1024×500 feature graphics ready for Google Play Console.</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     async function load() {
-      let projects;
+      let projects = [];
       try {
         const res = await fetch('api/projects.php');
-        if (!res.ok) throw new Error(res.status);
-        projects = await res.json();
+        if (res.ok) {
+          projects = await res.json();
+        }
       } catch (err) {
-        grid.innerHTML = '<p class="dash-empty">Could not reach the project API. Open this page through XAMPP Apache (http://localhost/appscreen/).</p>';
+        // Fallback: If running without PHP backend, projects will be empty
+        projects = [];
+      }
+
+      if (!projects || projects.length === 0) {
+        // High-converting, inspiring empty state
+        container.innerHTML = `
+          <div class="dash-hero">
+            <div class="dash-hero-badge">
+              <span class="material-symbols-outlined" style="font-size:16px;">auto_awesome</span>
+              <span>Play Store Screenshot Studio</span>
+            </div>
+            <h2 class="dash-hero-title">Create High-Converting Google Play Screenshots</h2>
+            <p class="dash-hero-desc">
+              Design professional app screenshots, 3D device mockups, promotional badges, and localized store listings in minutes — with zero design skills required.
+            </p>
+            <div class="dash-hero-actions">
+              <a href="editor.html?new=true" class="btn btn-primary flex items-center gap-1.5" style="padding:10px 20px; font-weight:700;">
+                <span class="material-symbols-outlined" style="font-size:18px;">add_circle</span>
+                <span>Start Blank Project</span>
+              </a>
+              <a href="editor.html?new=true&template=vibrant_saas" class="btn btn-outline flex items-center gap-1.5" style="padding:10px 18px;">
+                <span class="material-symbols-outlined" style="font-size:18px;">bolt</span>
+                <span>Launch with Popular SaaS Template</span>
+              </a>
+            </div>
+          </div>
+
+          ${renderTemplateCards()}
+          ${renderFeaturesGrid()}
+        `;
         return;
       }
-      if (!projects.length) {
-        grid.innerHTML = '<p class="dash-empty">No projects yet. Start one with “New project”; every edit is saved automatically.</p>';
-        return;
-      }
+
+      // If projects exist, display recent projects first, followed by quick template picker
+      container.innerHTML = `
+        <div class="dash-head">
+          <h2>Recent projects</h2>
+          <a href="editor.html?new=true" class="btn btn-primary btn-sm flex items-center gap-1.5">
+            <span class="material-symbols-outlined" style="font-size:16px;">add</span> New project
+          </a>
+        </div>
+        <div id="dash-grid" class="dash-grid"></div>
+        ${renderTemplateCards()}
+      `;
+
+      const grid = document.getElementById('dash-grid');
       grid.replaceChildren(...projects.map(p => {
         const href = `editor.html?project=${encodeURIComponent(p.id)}`;
         const card = document.createElement('div');
@@ -86,7 +396,6 @@
               <button class="btn btn-danger btn-sm flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:15px;">delete</span> Delete</button>
             </div>
           </div>`;
-        // Name and thumbnail are user data: set as text / style, never as HTML
         card.querySelector('.dash-name').textContent = p.name;
         card.querySelector('.dash-name').title = p.name;
         card.querySelector('.dash-langs').innerHTML = `<span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:2px;">language</span> ${(p.languages || ['en']).map(l => String(l).toUpperCase()).join(' · ')}`;
