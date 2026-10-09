@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Projects - AppScreen Studio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <script>
+    try { document.documentElement.setAttribute('data-theme', localStorage.getItem('appscreen_studio_theme') || 'dark'); } catch (e) {}
+  </script>
+  <style>
+    body { overflow: auto; height: auto; min-height: 100vh; }
+    .dash { max-width: 1200px; width: 100%; margin: 0 auto; padding: 32px 16px; }
+    .dash-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; }
+    .dash-head h2 { font-size: 22px; font-weight: 800; }
+    .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+    .dash-card { background: var(--bg-sidebar); border: 1px solid var(--border-strong); border-radius: var(--radius-md); overflow: hidden; display: flex; flex-direction: column; }
+    .dash-card:hover { border-color: var(--accent-primary); box-shadow: var(--shadow-glow); }
+    .dash-thumb { display: block; aspect-ratio: 9 / 16; background: var(--bg-card) center / contain no-repeat; }
+    .dash-body { padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+    .dash-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main); text-decoration: none; }
+    .dash-meta { font-size: 12px; color: var(--text-muted); }
+    .dash-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .dash-empty { color: var(--text-muted); padding: 48px 0; text-align: center; }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-logo-icon"><span class="material-symbols-outlined" style="font-size:22px; color:#ffffff;">smartphone</span></div>
+      <div class="brand-text"><h1>AppScreen Studio</h1></div>
+      <span class="brand-badge">Google Play</span>
+    </div>
+  </header>
+
+  <main class="dash">
+    <div class="dash-head">
+      <h2>Recent projects</h2>
+      <a href="editor.html?new=true" class="btn btn-primary btn-sm"><span class="material-symbols-outlined" style="font-size:16px;">add</span> New project</a>
+    </div>
+    <div id="dash-grid" class="dash-grid"></div>
+  </main>
+
+  <script>
+    const grid = document.getElementById('dash-grid');
+
+    function timeAgo(seconds) {
+      const diff = Date.now() / 1000 - seconds;
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)} h ago`;
+      return new Date(seconds * 1000).toLocaleDateString();
+    }
+
+    async function load() {
+      let projects;
+      try {
+        const res = await fetch('api/projects.php');
+        if (!res.ok) throw new Error(res.status);
+        projects = await res.json();
+      } catch (err) {
+        grid.innerHTML = '<p class="dash-empty">Could not reach the project API. Open this page through XAMPP Apache (http://localhost/appscreen/).</p>';
+        return;
+      }
+      if (!projects.length) {
+        grid.innerHTML = '<p class="dash-empty">No projects yet. Start one with “New project”; every edit is saved automatically.</p>';
+        return;
+      }
+      grid.replaceChildren(...projects.map(p => {
+        const href = `editor.html?project=${encodeURIComponent(p.id)}`;
+        const card = document.createElement('div');
+        card.className = 'dash-card';
+        card.innerHTML = `
+          <a class="dash-thumb" href="${href}"></a>
+          <div class="dash-body">
+            <a class="dash-name" href="${href}"></a>
+            <span class="dash-meta">${p.screens} screen${p.screens === 1 ? '' : 's'} · edited ${timeAgo(p.updated)}</span>
+            <span class="dash-meta dash-langs"></span>
+            <div class="dash-actions">
+              <a class="btn btn-outline btn-sm flex items-center gap-1" href="${href}"><span class="material-symbols-outlined" style="font-size:15px;">open_in_new</span> Open</a>
+              <button class="btn btn-danger btn-sm flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:15px;">delete</span> Delete</button>
+            </div>
+          </div>`;
+        // Name and thumbnail are user data: set as text / style, never as HTML
+        card.querySelector('.dash-name').textContent = p.name;
+        card.querySelector('.dash-name').title = p.name;
+        card.querySelector('.dash-langs').innerHTML = `<span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:2px;">language</span> ${(p.languages || ['en']).map(l => String(l).toUpperCase()).join(' · ')}`;
+        if (/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(p.thumbnail || '')) card.querySelector('.dash-thumb').style.backgroundImage = `url("${p.thumbnail}")`;
+        card.querySelector('button').onclick = async () => {
+          if (!confirm(`Delete "${p.name}"? This removes its file from the projects folder.`)) return;
+          await fetch(`api/projects.php?id=${encodeURIComponent(p.id)}`, { method: 'DELETE' });
+          load();
+        };
+        return card;
+      }));
+    }
+
+    load();
+  </script>
+</body>
+</html>

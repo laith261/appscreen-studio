@@ -1,0 +1,6 @@
+# Make browsers re-check app files on every load, so updates (incl. imported JS modules) show immediately
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|js|css)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
