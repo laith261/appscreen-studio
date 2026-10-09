@@ -139,10 +139,7 @@ Open `http://localhost:8000` in your web browser.
 
 ### Option 3: GitHub Pages (Instant Cloud Hosting)
 
-1. Go to your repository settings on GitHub (`Settings` > `Pages`).
-2. Under **Build and deployment** > **Source**, select `Deploy from a branch`.
-3. Choose branch `main` and folder `/(root)`.
-4. Click **Save**. Your studio will be live at `https://laith261.github.io/appscreen-studio/`!
+Go to `https://laith261.github.io/appscreen-studio/`!
 
 ---
 
