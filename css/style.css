@@ -159,12 +159,19 @@ body {
 
 .brand-badge {
   font-size: 11px;
-  font-weight: 600;
-  background: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
   padding: 3px 10px;
   border-radius: var(--radius-full);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  letter-spacing: 0.02em;
+}
+
+[data-theme="light"] .brand-badge {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.35);
 }
 
 .header-right {

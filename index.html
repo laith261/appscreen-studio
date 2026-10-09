@@ -40,9 +40,9 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      background: rgba(99, 102, 241, 0.2);
-      border: 1px solid rgba(99, 102, 241, 0.4);
-      color: #a5b4fc;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(52, 211, 153, 0.4);
+      color: #34d399;
       font-size: 12px;
       font-weight: 700;
       text-transform: uppercase;
@@ -51,6 +51,17 @@
       border-radius: 9999px;
       margin-bottom: 18px;
     }
+    .dash-hero-badge .material-symbols-outlined {
+      color: #10b981;
+    }
+    [data-theme="light"] .dash-hero-badge {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.35);
+      color: #047857;
+    }
+    [data-theme="light"] .dash-hero-badge .material-symbols-outlined {
+      color: #059669;
+    }
     .dash-hero-title {
       font-size: 30px;
       font-weight: 800;
@@ -58,6 +69,11 @@
       margin-bottom: 12px;
       line-height: 1.25;
       letter-spacing: -0.5px;
+    }
+    .dash-hero-title .highlight-text {
+      background: linear-gradient(135deg, #34d399, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
     .dash-hero-desc {
       font-size: 15px;
@@ -219,7 +235,7 @@
           <span class="material-symbols-outlined" style="font-size:16px;">auto_awesome</span>
           <span>Play Store Screenshot Studio</span>
         </div>
-        <h2 class="dash-hero-title">Create High-Converting Google Play Screenshots</h2>
+        <h2 class="dash-hero-title">Create High-Converting <span class="highlight-text">Google Play</span> Screenshots</h2>
         <p class="dash-hero-desc">
           Design professional app screenshots, 3D device mockups, promotional badges, and localized store listings in minutes — with zero design skills required.
         </p>
@@ -451,7 +467,7 @@
               <span class="material-symbols-outlined" style="font-size:16px;">auto_awesome</span>
               <span>Play Store Screenshot Studio</span>
             </div>
-            <h2 class="dash-hero-title">Create High-Converting Google Play Screenshots</h2>
+            <h2 class="dash-hero-title">Create High-Converting <span class="highlight-text">Google Play</span> Screenshots</h2>
             <p class="dash-hero-desc">
               Design professional app screenshots, 3D device mockups, promotional badges, and localized store listings in minutes — with zero design skills required.
             </p>
