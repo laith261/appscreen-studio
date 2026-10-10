@@ -7,7 +7,7 @@
 
 **AppScreen Studio** is a client-side web application and design suite for crafting high-converting Google Play Store listing screenshots, realistic device mockups, promotional badges, multilingual localized copies, and feature graphics.
 
-Built entirely with **Vanilla JavaScript (ES Modules)**, **HTML5 Canvas**, and **Google Material Symbols**, backed by a lightweight file-based PHP API for automatic project persistence.
+Built entirely with **Vanilla JavaScript (ES Modules)**, **HTML5 Canvas**, and **Google Material Symbols**, backed by pure client-side **IndexedDB** persistence, instant `.json` project backup/restore, and a lightweight Node.js server.
 
 ---
 

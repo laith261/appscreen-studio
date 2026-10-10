@@ -509,7 +509,6 @@
 
       const diskProjects = [
         ...(await tryFetchProjects('workspace_projects.json')),
-        ...(await tryFetchProjects('api/projects.php')),
         ...(await tryFetchProjects('/api/projects'))
       ];
 
@@ -652,7 +651,6 @@
           if (p.isFile && p.filename) {
             try {
               await fetch(`/api/projects?file=${encodeURIComponent(p.filename)}`, { method: 'DELETE' });
-              await fetch(`api/projects.php?delete=${encodeURIComponent(p.filename)}`, { method: 'DELETE' });
             } catch (err) {}
             const deleted = JSON.parse(localStorage.getItem('appscreen_deleted_files') || '[]');
             if (!deleted.includes(p.filename)) deleted.push(p.filename);
