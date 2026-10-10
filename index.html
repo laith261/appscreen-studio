@@ -228,13 +228,17 @@
       <span class="brand-badge">Google Play</span>
     </div>
     <div class="header-right" style="display:flex; align-items:center; gap:10px;">
+      <button id="btn-header-import" type="button" class="btn btn-outline btn-sm flex items-center gap-1.5" title="Import AppScreen JSON project">
+        <span class="material-symbols-outlined" style="font-size:16px;">upload_file</span>
+        <span>Import JSON</span>
+      </button>
       <a href="mcp.html" class="btn btn-outline btn-sm flex items-center gap-1.5" style="border-color: rgba(99, 102, 241, 0.4); color: var(--accent-primary); font-weight:700;">
         <span class="material-symbols-outlined" style="font-size:18px;">smart_toy</span>
         <span>AI &amp; MCP Guide</span>
       </a>
       <a href="editor.html?new=true" class="btn btn-primary btn-sm flex items-center gap-1.5">
         <span class="material-symbols-outlined" style="font-size:16px;">add</span>
-        <span>Open Editor</span>
+        <span>New Project</span>
       </a>
     </div>
   </header>
@@ -390,6 +394,7 @@
     });
 
     const triggerImport = () => importInput.click();
+    document.getElementById('btn-header-import')?.addEventListener('click', triggerImport);
 
     const CURATED_TEMPLATES = [
       {
@@ -583,20 +588,10 @@
       container.innerHTML = `
         <div class="dash-head">
           <h2>Recent projects</h2>
-          <div class="flex items-center gap-2">
-            <button id="btn-head-import" type="button" class="btn btn-outline btn-sm flex items-center gap-1.5">
-              <span class="material-symbols-outlined" style="font-size:16px;">upload_file</span> Import JSON
-            </button>
-            <a href="editor.html?new=true" class="btn btn-primary btn-sm flex items-center gap-1.5">
-              <span class="material-symbols-outlined" style="font-size:16px;">add</span> New project
-            </a>
-          </div>
         </div>
         <div id="dash-grid" class="dash-grid"></div>
         ${renderTemplateCards()}
       `;
-
-      document.getElementById('btn-head-import')?.addEventListener('click', triggerImport);
 
       const grid = document.getElementById('dash-grid');
       grid.replaceChildren(...projects.map(p => {
