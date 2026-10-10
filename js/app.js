@@ -48,7 +48,7 @@ class AppScreenStudio {
     let id = url.searchParams.get('project');
     if (id === 'new') id = null;
 
-    // Detect if id refers to a file project (e.g. "file-flying_bird_project_json" or "flying_bird_project")
+    // Detect if id refers to a file project (e.g. "file-my_project_json" or "my_project")
     if (!fileParam && id && id.startsWith('file-')) {
       const raw = id.slice(5);
       fileParam = raw.endsWith('_json') ? raw.slice(0, -5) + '.json' : (raw.includes('.') ? raw : raw + '.json');
