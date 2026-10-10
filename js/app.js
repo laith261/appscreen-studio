@@ -41,46 +41,92 @@ class AppScreenStudio {
   constructor() {
     this.store = appStore;
 
-    // 1. Resolve project ID: URL parameter -> saved last project -> new project
+    // 1. Resolve project file and ID
     const url = new URL(location.href);
+    let fileParam = url.searchParams.get('file');
     const isExplicitNew = url.searchParams.get('new') === 'true' || url.searchParams.get('project') === 'new';
     let id = url.searchParams.get('project');
     if (id === 'new') id = null;
 
-    if (!isExplicitNew && !id) {
-      id = getLastProjectId();
-      if (id) {
-        url.searchParams.set('project', id);
-        history.replaceState(null, '', url);
-      }
+    // Detect if id refers to a file project (e.g. "file-flying_bird_project_json" or "flying_bird_project")
+    if (!fileParam && id && id.startsWith('file-')) {
+      const raw = id.slice(5);
+      fileParam = raw.endsWith('_json') ? raw.slice(0, -5) + '.json' : (raw.includes('.') ? raw : raw + '.json');
     }
 
-    if (isExplicitNew || !id) {
-      id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-      const templateParam = url.searchParams.get('template');
-      url.searchParams.delete('new');
-      url.searchParams.delete('template');
+    if (fileParam) {
+      if (!id) id = `file-${fileParam.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
       url.searchParams.set('project', id);
+      url.searchParams.set('file', fileParam);
       history.replaceState(null, '', url);
       setLastProjectId(id);
 
-      if (templateParam) {
-        applyTemplate(this.store, templateParam, true);
-        this.store.history = [];
-        this.store.future = [];
-      }
-    } else {
-      setLastProjectId(id);
-      // Synchronously restore project from local cache before rendering any UI
+      // Fast restore from local cache placeholder while network fetch is in-flight
       const cached = getLocalProject(id);
       if (cached) {
         this.store.loadProject(cached);
         this.store.history = [];
         this.store.future = [];
       }
+
+      // Fetch fresh project file from workspace (cache-busted)
+      fetch(`${fileParam}?t=${Date.now()}`)
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        })
+        .then(projectData => {
+          if (projectData && Array.isArray(projectData.screens)) {
+            this.store.loadProject(projectData);
+            this.store.history = [];
+            this.store.future = [];
+            saveLocalProject(id, projectData);
+            idbSaveProject(id, projectData);
+            this.refreshAllUi(projectData);
+          }
+        })
+        .catch(err => console.warn('Could not load fresh project from file:', err));
+    } else if (!isExplicitNew && !id) {
+      id = getLastProjectId();
+      if (id) {
+        if (id.startsWith('file-')) {
+          const raw = id.slice(5);
+          fileParam = raw.endsWith('_json') ? raw.slice(0, -5) + '.json' : (raw.includes('.') ? raw : raw + '.json');
+          url.searchParams.set('file', fileParam);
+        }
+        url.searchParams.set('project', id);
+        history.replaceState(null, '', url);
+      }
+    }
+
+    if (!fileParam) {
+      if (isExplicitNew || !id) {
+        id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        const templateParam = url.searchParams.get('template');
+        url.searchParams.delete('new');
+        url.searchParams.delete('template');
+        url.searchParams.set('project', id);
+        history.replaceState(null, '', url);
+        setLastProjectId(id);
+
+        if (templateParam) {
+          applyTemplate(this.store, templateParam, true);
+          this.store.history = [];
+          this.store.future = [];
+        }
+      } else {
+        setLastProjectId(id);
+        const cached = getLocalProject(id);
+        if (cached) {
+          this.store.loadProject(cached);
+          this.store.history = [];
+          this.store.future = [];
+        }
+      }
     }
 
     this.projectId = id;
+    this.boundFile = fileParam || null;
 
     // 2. Restore saved UI preferences (zoom, drawer tab, etc.)
     const uiState = getUiState();
@@ -141,6 +187,24 @@ class AppScreenStudio {
 
     this.initPersistence();
     this.initProjectSync();
+  }
+
+  /**
+   * Refreshes all UI views, drawers, strips, and dropdowns when a project is loaded or updated.
+   * @param {Object} [projectData]
+   */
+  refreshAllUi(projectData) {
+    if (this.renderer) this.renderer.requestRender();
+    if (this.leftDrawer) this.leftDrawer.renderDrawerContent();
+    if (this.screenSelector) this.screenSelector.render();
+    if (this.inspector) this.inspector.render();
+    if (typeof this.fillLangSelects === 'function') {
+      this.fillLangSelects(this.store.getState());
+    }
+    const titleInput = document.getElementById('project-name-input');
+    if (titleInput && projectData?.projectName) {
+      titleInput.value = projectData.projectName;
+    }
   }
 
   /**
@@ -337,7 +401,7 @@ class AppScreenStudio {
 
     // Language copy switcher (canvas toolbar) lists the project's copies
     const langSelects = [document.getElementById('lang-switch')].filter(Boolean);
-    const fillLangSelects = (state) => {
+    this.fillLangSelects = (state) => {
       const options = state.languages.map(code => {
         const l = SUPPORTED_LANGUAGES.find(x => x.code === code);
         return `<option value="${code}">${l ? `${l.flag} ${l.name.split(' ')[0]}` : code}</option>`;
@@ -357,7 +421,31 @@ class AppScreenStudio {
         }
       };
     });
-    fillLangSelects(this.store.getState());
+    this.fillLangSelects(this.store.getState());
+
+    // File binding status and click-to-reload
+    const saveStatus = document.getElementById('save-status');
+    if (saveStatus && this.boundFile) {
+      saveStatus.style.cursor = 'pointer';
+      saveStatus.title = `File: ${this.boundFile}. Click to reload from disk.`;
+      saveStatus.addEventListener('click', () => {
+        saveStatus.textContent = '⏳ Reloading from disk…';
+        fetch(`${this.boundFile}?t=${Date.now()}`)
+          .then(r => r.json())
+          .then(projectData => {
+            if (projectData && Array.isArray(projectData.screens)) {
+              this.store.loadProject(projectData);
+              saveLocalProject(this.projectId, projectData);
+              idbSaveProject(this.projectId, projectData);
+              this.refreshAllUi(projectData);
+              saveStatus.textContent = `✓ Synced with ${this.boundFile}`;
+            }
+          })
+          .catch(() => {
+            saveStatus.textContent = '⚠️ Could not reload file';
+          });
+      });
+    }
 
     const themeSelect = document.getElementById('settings-theme-select');
     themeSelect.innerHTML = STUDIO_THEMES.map(t => `<option value="${t.id}">${t.icon} ${t.name}</option>`).join('');
@@ -372,7 +460,7 @@ class AppScreenStudio {
       redoBtn.disabled = !this.store.future.length;
       document.getElementById('export-all-count').textContent = state.screens.length;
       document.getElementById('export-langs-count').textContent = state.languages.length;
-      fillLangSelects(state);
+      this.fillLangSelects(state);
       if (document.activeElement !== titleInput && titleInput.value !== state.projectName) titleInput.value = state.projectName;
     });
     undoBtn.disabled = redoBtn.disabled = true;

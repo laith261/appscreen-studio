@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "appscreen-studio-mcp": {
+      "command": "node",
+      "args": [
+        "/Applications/XAMPP/xamppfiles/htdocs/appscreen/mcp/server.js"
+      ]
+    },
+    "appscreen-mcp": {
+      "command": "node",
+      "args": [
+        "/Applications/XAMPP/xamppfiles/htdocs/appscreen/mcp/server.js"
+      ]
+    }
+  }
+}

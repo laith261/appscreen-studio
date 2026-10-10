@@ -183,7 +183,7 @@ export class ThemeManager {
    * Initializes theme manager and restores saved UI preference.
    */
   constructor() {
-    this.currentStudioTheme = localStorage.getItem('appscreen_studio_theme') || 'dark';
+    this.currentStudioTheme = (typeof localStorage !== 'undefined' ? localStorage.getItem('appscreen_studio_theme') : null) || 'dark';
     this.applyStudioTheme(this.currentStudioTheme);
   }
 

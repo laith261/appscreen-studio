@@ -7,8 +7,7 @@
 import { PLAY_STORE_TEMPLATES, DESIGN_IDEAS, applyTemplate, applyDesignIdea } from '../features/templates/templates.js';
 import { getSavedDesigns, saveCurrentDesign, deleteSavedDesign, applyCustomDesign, generateDesignWireframeSvg } from '../features/templates/customDesigns.js';
 import { SHAPE_DEFINITIONS, createShape } from '../features/shapes/shapeLibrary.js';
-import { mountFontPicker } from './fontPicker.js';
-import { TEXT_PRESETS } from '../features/text/fontManager.js';
+import { TEXT_PRESETS, getDefaultFontForLanguage, isFontSupportedForLanguage } from '../features/text/fontManager.js';
 import { SUPPORTED_LANGUAGES, AI_PROVIDERS, buildLanguageCopy, getAiSettings, isAiReady } from '../features/translation/translationService.js';
 import { SOLID_PALETTES, LISTING_PALETTES, themeManager } from '../features/theme/themeManager.js';
 import { getSavedColors, saveCurrentColors, deleteSavedColor, applyCustomColor } from '../features/theme/customColors.js';
@@ -65,6 +64,25 @@ export class LeftDrawer {
   }
 
   /**
+   * Syncs store active element with the clicked drawer tab so the Right Inspector
+   * immediately displays that element's editable properties.
+   */
+  syncActiveElementWithTab(tabId) {
+    const state = this.store.getState();
+    const screen = this.store.getActiveScreen();
+    if (!screen) return;
+
+    if (tabId === 'frame' || tabId === 'image') {
+      const isDeviceActive = state.activeElementId === 'device' ||
+        (typeof state.activeElementId === 'string' && state.activeElementId.startsWith('device-'));
+      if (!isDeviceActive) {
+        const devId = screen.devices?.[0]?.id || screen.device?.id || 'device';
+        this.store.setActiveElement(devId);
+      }
+    }
+  }
+
+  /**
    * Renders the slim vertical dock on the far left.
    */
   renderDock() {
@@ -103,6 +121,7 @@ export class LeftDrawer {
           this.drawerPanel.classList.remove('collapsed');
           this.dockContainer.querySelectorAll('.dock-tab-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
+          this.syncActiveElementWithTab(tab.id);
           this.renderDrawerContent();
         }
         this.onUiChange?.();
@@ -719,33 +738,13 @@ export class LeftDrawer {
           </div>
         </div>
 
-        <!-- Image Fit & Adjustment Controls -->
-        <div class="form-group mb-3">
-          <label class="form-label mb-1.5">Screenshot Fit Mode</label>
-          <div class="grid grid-cols-2 gap-2">
-            <button class="btn btn-outline btn-xs ${(!dev.imageFit || dev.imageFit === 'cover') ? 'btn-primary' : ''}" data-image-fit="cover">
-              Fill Screen
-            </button>
-            <button class="btn btn-outline btn-xs ${dev.imageFit === 'contain' ? 'btn-primary' : ''}" data-image-fit="contain">
-              Fit Whole
-            </button>
+        <!-- Screenshot Properties Hint pointing to Right Sidebar -->
+        <div class="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200 flex items-start gap-2 mb-3">
+          <span class="material-symbols-outlined text-indigo-400 mt-0.5" style="font-size:17px; flex-shrink:0;">tune</span>
+          <div>
+            <div class="font-semibold text-slate-100">Properties in Right Sidebar &rarr;</div>
+            <div class="text-[11px] text-slate-400 mt-0.5">Screenshot fit mode (Fill/Fit), zoom scale, and vertical position are in the Right Inspector.</div>
           </div>
-        </div>
-
-        <div class="form-group mb-3">
-          <div class="flex justify-between items-center mb-1">
-            <label class="form-label mb-0">Screenshot Zoom</label>
-            <span class="text-xs text-slate-400">${Math.round((dev.imageScale || 1) * 100)}%</span>
-          </div>
-          <input type="range" class="form-range" id="drawer-image-scale" min="0.5" max="1.5" step="0.02" value="${dev.imageScale || 1}" />
-        </div>
-
-        <div class="form-group mb-4">
-          <div class="flex justify-between items-center mb-1">
-            <label class="form-label mb-0">Vertical Position</label>
-            <span class="text-xs text-slate-400">${dev.imageOffsetY || 0}px</span>
-          </div>
-          <input type="range" class="form-range" id="drawer-image-offset-y" min="-250" max="250" step="5" value="${dev.imageOffsetY || 0}" />
         </div>
       ` : `
         <!-- Big Friendly Upload Box -->
@@ -854,38 +853,6 @@ export class LeftDrawer {
       };
     }
 
-    // Fit mode buttons
-    wrap.querySelectorAll('[data-image-fit]').forEach(btn => {
-      btn.onclick = () => {
-        this.store.update(state => {
-          const sc = activeDoc(state);
-          if (sc && sc.device) sc.device.imageFit = btn.dataset.imageFit;
-        });
-        this.renderDrawerContent();
-      };
-    });
-
-    // Image Scale and Offset
-    const scaleInput = wrap.querySelector('#drawer-image-scale');
-    if (scaleInput) {
-      scaleInput.oninput = (e) => {
-        this.store.update(state => {
-          const sc = activeDoc(state);
-          if (sc && sc.device) sc.device.imageScale = parseFloat(e.target.value);
-        });
-      };
-    }
-
-    const offsetInput = wrap.querySelector('#drawer-image-offset-y');
-    if (offsetInput) {
-      offsetInput.oninput = (e) => {
-        this.store.update(state => {
-          const sc = activeDoc(state);
-          if (sc && sc.device) sc.device.imageOffsetY = parseFloat(e.target.value);
-        });
-      };
-    }
-
     container.appendChild(wrap);
   }
 
@@ -954,26 +921,16 @@ export class LeftDrawer {
         </div>
       `}
 
-      <label class="form-label mb-2">Frame style</label>
-      <div class="frame-style-grid mb-4">
-        ${styles.map(f => `
-          <button type="button" class="frame-card ${dev.type === f.type ? 'active' : ''}" data-type="${f.type}" aria-pressed="${dev.type === f.type}">
-            <span class="frame-icon material-symbols-outlined" style="font-size:26px;">${f.icon}</span>
-            <span class="frame-name">${f.name}</span>
-          </button>
-        `).join('')}
+      <div class="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200 flex items-start gap-2 mb-3">
+        <span class="material-symbols-outlined text-indigo-400 mt-0.5" style="font-size:17px; flex-shrink:0;">tune</span>
+        <div>
+          <div class="font-semibold text-slate-100">Frame Properties in Right Sidebar &rarr;</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Phone model, colors, size, rotation, and offsets are in the Right Inspector.</div>
+        </div>
       </div>
 
-      <label class="form-label mb-2">Frame color</label>
-      <div class="frame-color-row mb-4">
-        ${colors.map(c => `
-          <button type="button" class="frame-color-swatch ${curColor === c.hex ? 'active' : ''}" data-color="${c.hex}" title="${c.name}" aria-label="${c.name}" style="background:${c.hex}"></button>
-        `).join('')}
-        <input type="color" class="color-swatch-sm" id="frame-color-custom" value="${curColor}" title="Custom color" aria-label="Custom frame color" />
-      </div>
-
-      <button type="button" class="btn btn-outline btn-sm w-full mb-2" id="frame-apply-all">Apply this frame style to all screens</button>
-      <button type="button" class="btn btn-outline btn-sm w-full" id="frame-duplicate-btn"><span class="material-symbols-outlined" style="font-size:15px;">content_copy</span> Duplicate Selected Frame</button>
+      <button type="button" class="btn btn-outline btn-sm w-full mb-2" id="frame-duplicate-btn"><span class="material-symbols-outlined" style="font-size:15px;">content_copy</span> Duplicate Selected Frame</button>
+      <button type="button" class="btn btn-outline btn-sm w-full" id="frame-apply-all">Apply this frame style to all screens</button>
     `;
 
     const setDevice = (fn) => this.store.update(state => {
@@ -1106,13 +1063,6 @@ export class LeftDrawer {
       });
     });
 
-    wrap.querySelectorAll('[data-type]').forEach(btn => {
-      btn.onclick = () => setDevice(d => { d.type = btn.dataset.type; });
-    });
-    wrap.querySelectorAll('[data-color]').forEach(btn => {
-      btn.onclick = () => setDevice(d => { d.color = btn.dataset.color; });
-    });
-    wrap.querySelector('#frame-color-custom').oninput = (e) => setDevice(d => { d.color = e.target.value; });
     wrap.querySelector('#frame-apply-all').onclick = () => {
       this.store.update(state => {
         state.screens.forEach(sc => {
@@ -1144,47 +1094,23 @@ export class LeftDrawer {
     const wrap = document.createElement('div');
     wrap.className = 'drawer-section';
 
-    // Collect only texts that actually have content or are actively selected
-    const texts = [];
-    let textIndex = 1;
-    const isHeadlineActive = screen.headline && !screen.headline.deleted && !screen.headline.hidden && (screen.headline.text?.trim() || state.activeElementId === 'headline');
-    if (isHeadlineActive) {
-      texts.push({ id: 'headline', type: 'headline', icon: 'title', obj: screen.headline, label: `Text ${textIndex++}`, defaultText: 'Text' });
-    }
-    const isSubtitleActive = screen.subtitle && !screen.subtitle.deleted && !screen.subtitle.hidden && (screen.subtitle.text?.trim() || state.activeElementId === 'subtitle');
-    if (isSubtitleActive) {
-      texts.push({ id: 'subtitle', type: 'subtitle', icon: 'short_text', obj: screen.subtitle, label: `Text ${textIndex++}`, defaultText: 'Text' });
-    }
-    (screen.shapes || []).filter(s => s.type === 'text' && !s.deleted && !s.hidden && (s.text?.trim() || state.activeElementId === s.id)).forEach((sh) => {
-      texts.push({ id: sh.id, type: 'custom', icon: 'text_fields', obj: sh, label: `Text ${textIndex++}`, defaultText: 'Text' });
-    });
+    const activeEl = state.activeElementId;
+    let selectedTextObj = null;
+    let selectedTextId = null;
 
-    // Active text element: if state.activeElementId is a text item, use it. Otherwise, default to first available.
-    let activeTextItem = texts.find(t => t.id === state.activeElementId);
-    if (!activeTextItem && texts.length > 0) {
-      activeTextItem = texts[0];
+    if (activeEl === 'headline' && screen.headline && !screen.headline.hidden && !screen.headline.deleted) {
+      selectedTextObj = screen.headline;
+      selectedTextId = 'headline';
+    } else if (activeEl === 'subtitle' && screen.subtitle && !screen.subtitle.hidden && !screen.subtitle.deleted) {
+      selectedTextObj = screen.subtitle;
+      selectedTextId = 'subtitle';
+    } else if (activeEl && screen.shapes) {
+      const sh = screen.shapes.find(s => s.id === activeEl && s.type === 'text' && !s.hidden && !s.deleted);
+      if (sh) {
+        selectedTextObj = sh;
+        selectedTextId = sh.id;
+      }
     }
-    const activeObj = activeTextItem?.obj;
-
-    const updateActive = (cb) => {
-      if (!activeTextItem) return;
-      this.store.update(s => {
-        const sc = activeDoc(s);
-        if (!sc) return;
-        if (activeTextItem.id === 'headline' || activeTextItem.id === 'subtitle') {
-          if (sc[activeTextItem.id]) {
-            sc[activeTextItem.id].hidden = false;
-            cb(sc[activeTextItem.id]);
-          }
-        } else {
-          const sh = sc.shapes?.find(x => x.id === activeTextItem.id);
-          if (sh) {
-            sh.hidden = false;
-            cb(sh);
-          }
-        }
-      });
-    };
 
     const addNewText = (presetId = 'headline') => {
       const preset = TEXT_PRESETS.find(p => p.id === presetId) || TEXT_PRESETS[0];
@@ -1194,55 +1120,11 @@ export class LeftDrawer {
         : preset.id === 'eyebrow' ? 'SPECIAL FEATURE'
         : preset.id === 'callout' ? 'NEW UPDATE' : 'Custom text note.';
 
-      // If headline was deleted or empty, use it for this new text
-      if (screen.headline && (screen.headline.hidden || screen.headline.deleted || !screen.headline.text?.trim())) {
-        this.store.update(s => {
-          const sc = activeDoc(s);
-          if (sc && sc.headline) {
-            sc.headline.text = defaultText;
-            sc.headline.hidden = false;
-            sc.headline.deleted = false;
-            sc.headline.fontFamily = preset.style.fontFamily;
-            sc.headline.fontSize = preset.style.fontSize;
-            sc.headline.fontWeight = preset.style.fontWeight;
-            sc.headline.color = preset.style.color;
-            sc.headline.align = preset.style.align || 'center';
-            sc.headline.lineHeight = preset.style.lineHeight || 1.2;
-            sc.headline.shadow = preset.style.shadow || false;
-            if (sc.layerOrder && !sc.layerOrder.includes('headline')) {
-              sc.layerOrder.push('headline');
-            }
-            s.activeElementId = 'headline';
-          }
-        });
-        this.renderDrawerContent();
-        return;
-      }
-
-      // If subtitle was deleted or empty, use it for this new text
-      if (screen.subtitle && (screen.subtitle.hidden || screen.subtitle.deleted || !screen.subtitle.text?.trim())) {
-        this.store.update(s => {
-          const sc = activeDoc(s);
-          if (sc && sc.subtitle) {
-            sc.subtitle.text = defaultText;
-            sc.subtitle.hidden = false;
-            sc.subtitle.deleted = false;
-            sc.subtitle.fontFamily = preset.style.fontFamily;
-            sc.subtitle.fontSize = preset.style.fontSize;
-            sc.subtitle.fontWeight = preset.style.fontWeight;
-            sc.subtitle.color = preset.style.color;
-            sc.subtitle.align = preset.style.align || 'center';
-            sc.subtitle.lineHeight = preset.style.lineHeight || 1.35;
-            sc.subtitle.shadow = preset.style.shadow || false;
-            if (sc.layerOrder && !sc.layerOrder.includes('subtitle')) {
-              sc.layerOrder.push('subtitle');
-            }
-            s.activeElementId = 'subtitle';
-          }
-        });
-        this.renderDrawerContent();
-        return;
-      }
+      const curState = this.store.getState();
+      const activeLang = curState.activeLanguage || 'en';
+      const resolvedFont = isFontSupportedForLanguage(preset.style.fontFamily, activeLang)
+        ? preset.style.fontFamily
+        : getDefaultFontForLanguage(activeLang, preset.id);
 
       const newId = 'text_' + Math.random().toString(36).substr(2, 9);
       const existingCount = screen.shapes?.filter(s => s.type === 'text').length || 0;
@@ -1250,13 +1132,13 @@ export class LeftDrawer {
         id: newId,
         type: 'text',
         text: defaultText,
-        fontFamily: preset.style.fontFamily,
+        fontFamily: resolvedFont,
         fontSize: preset.style.fontSize,
         fontWeight: preset.style.fontWeight,
         color: preset.style.color,
-        align: preset.style.align,
-        lineHeight: preset.style.lineHeight,
-        shadow: preset.style.shadow,
+        align: preset.style.align || 'center',
+        lineHeight: preset.style.lineHeight || 1.25,
+        shadow: preset.style.shadow || false,
         x: Math.round(width / 2),
         y: Math.min(260 + existingCount * 80, height - 160),
         rotation: 0,
@@ -1266,43 +1148,47 @@ export class LeftDrawer {
         const sc = activeDoc(s);
         if (!sc.shapes) sc.shapes = [];
         sc.shapes.push(newText);
+        if (sc.layerOrder) sc.layerOrder.push(newId);
         s.activeElementId = newId;
       });
       this.renderDrawerContent();
     };
 
     const duplicateText = () => {
-      if (!activeTextItem || !activeObj) return;
+      if (!selectedTextObj) return;
       const { width, height } = docSize(state, screen);
       const newId = 'text_' + Math.random().toString(36).substr(2, 9);
       const clone = {
         id: newId,
         type: 'text',
-        text: activeObj.text || 'Text copy',
-        fontFamily: activeObj.fontFamily || 'Plus Jakarta Sans',
-        fontSize: activeObj.fontSize || 48,
-        fontWeight: activeObj.fontWeight || '700',
-        color: activeObj.color || '#ffffff',
-        align: activeObj.align || 'center',
-        lineHeight: activeObj.lineHeight || 1.25,
-        shadow: activeObj.shadow || false,
-        x: Math.min((activeObj.x ?? (width / 2)) + 20, width - 80),
-        y: Math.min((activeObj.y ?? (activeObj.yOffset ?? 200)) + 30, height - 100),
-        rotation: activeObj.rotation || 0,
-        scale: activeObj.scale || 1
+        text: selectedTextObj.text || 'Text copy',
+        fontFamily: selectedTextObj.fontFamily || 'Plus Jakarta Sans',
+        fontSize: selectedTextObj.fontSize || 48,
+        fontWeight: selectedTextObj.fontWeight || '700',
+        color: selectedTextObj.color || '#ffffff',
+        align: selectedTextObj.align || 'center',
+        lineHeight: selectedTextObj.lineHeight || 1.25,
+        shadow: selectedTextObj.shadow || false,
+        x: Math.min((selectedTextObj.x ?? (width / 2)) + 20, width - 80),
+        y: Math.min((selectedTextObj.y ?? (selectedTextObj.yOffset ?? 200)) + 30, height - 100),
+        rotation: selectedTextObj.rotation || 0,
+        scale: selectedTextObj.scale || 1
       };
       this.store.update(s => {
         const sc = activeDoc(s);
         if (!sc.shapes) sc.shapes = [];
         sc.shapes.push(clone);
+        if (sc.layerOrder) sc.layerOrder.push(newId);
         s.activeElementId = newId;
       });
       this.renderDrawerContent();
     };
 
     const deleteText = (id) => {
+      if (!id) return;
       this.store.update(s => {
         const sc = activeDoc(s);
+        if (!sc) return;
         if (id === 'headline' || id === 'subtitle') {
           if (sc[id]) {
             sc[id].text = '';
@@ -1312,143 +1198,70 @@ export class LeftDrawer {
         } else if (sc.shapes) {
           sc.shapes = sc.shapes.filter(x => x.id !== id);
         }
+        if (sc.layerOrder) sc.layerOrder = sc.layerOrder.filter(x => x !== id);
         if (s.activeElementId === id) s.activeElementId = null;
       });
       this.renderDrawerContent();
     };
 
-    const presetColors = ['#ffffff', '#38bdf8', '#34d399', '#fbbf24', '#f43f5e', '#a855f7', '#0f172a'];
+    const selectedSnippet = selectedTextObj?.text
+      ? escapeHtml(selectedTextObj.text.length > 26 ? selectedTextObj.text.slice(0, 24) + '…' : selectedTextObj.text)
+      : '';
 
     wrap.innerHTML = `
-      <!-- Add Text & Ready Styles -->
-      <div class="form-group mb-3 pb-3 border-b border-slate-700/60">
-        <div class="flex items-center justify-between mb-2">
-          <label class="form-label mb-0 text-slate-200 font-semibold">Add Text by Style</label>
-          <button class="btn btn-primary btn-xs" id="btn-add-text-action">+ Add Text</button>
-        </div>
+      <!-- Actions: Add Text Button & Quick Presets -->
+      <div class="mb-3">
+        <button class="btn btn-primary w-full py-2.5 mb-2.5 flex items-center justify-center gap-1.5 font-semibold" id="btn-add-text-action">
+          <span class="material-symbols-outlined" style="font-size:18px;">add</span> Add Text Layer
+        </button>
         <div class="ready-pills-row">
-          ${TEXT_PRESETS.map(p => `
-            <button class="ready-pill-btn flex items-center gap-1.5" data-add-preset="${p.id}" title="${p.name} style - ${p.preview}">
-              <span class="material-symbols-outlined" style="font-size:14px;">${p.icon}</span> ${p.name}
-            </button>
-          `).join('')}
+          <button class="ready-pill-btn flex items-center gap-1 text-[11px]" data-add-preset="headline"><span class="material-symbols-outlined" style="font-size:13px;">title</span> + Headline</button>
+          <button class="ready-pill-btn flex items-center gap-1 text-[11px]" data-add-preset="subtitle"><span class="material-symbols-outlined" style="font-size:13px;">short_text</span> + Subtitle</button>
+          <button class="ready-pill-btn flex items-center gap-1 text-[11px]" data-add-preset="eyebrow"><span class="material-symbols-outlined" style="font-size:13px;">label</span> + Tag</button>
+          <button class="ready-pill-btn flex items-center gap-1 text-[11px]" data-add-preset="callout"><span class="material-symbols-outlined" style="font-size:13px;">bolt</span> + Promo</button>
         </div>
       </div>
 
-      <!-- Texts on Screen -->
-      <div class="form-group mb-3">
-        <label class="form-label mb-1.5 text-slate-300 font-medium text-xs">Texts on Screen (${texts.length})</label>
-        <div class="text-layers-list">
-          ${texts.length === 0 ? `
-            <div class="p-3 text-center text-xs text-slate-500 italic bg-slate-800/20 rounded-lg border border-slate-700/40">
-              No text on this screen yet. Click "+ Add Text" above to create one.
-            </div>
-          ` : texts.map(t => {
-            const isCur = activeTextItem?.id === t.id;
-            const snippet = t.obj.text ? escapeHtml(t.obj.text) : '<span class="text-slate-500 italic">(Empty)</span>';
-            return `
-              <div class="text-item-row ${isCur ? 'active' : ''}" data-select-text="${t.id}" title="Click to select on canvas">
-                <span class="text-item-tag flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:13px;">${t.icon}</span>${t.label}</span>
-                <span class="text-item-snippet">${snippet}</span>
-                <button class="text-item-del" data-del-text="${t.id}" title="Clear / Delete text"><span class="material-symbols-outlined" style="font-size:14px;">delete</span></button>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-
-      ${activeObj ? `
-        <!-- Active Text Editor Card -->
+      <!-- Selected Standalone Text Actions -->
+      ${selectedTextObj ? `
         <div class="p-3 bg-slate-800/40 rounded-xl border border-indigo-500/20 mb-3">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
-              <span class="material-symbols-outlined" style="font-size:15px;">text_fields</span> Edit ${activeTextItem.label}
+          <div class="flex items-center justify-between mb-2 pb-2 border-b border-slate-700/50">
+            <span class="text-xs font-semibold text-indigo-300 flex items-center gap-1.5 min-w-0">
+              <span class="material-symbols-outlined text-indigo-400" style="font-size:16px; flex-shrink:0;">text_fields</span>
+              <span class="truncate" title="${escapeHtml(selectedTextObj.text || '')}">Selected: "${selectedSnippet}"</span>
             </span>
-            <div class="flex items-center gap-1.5">
-              <button class="btn btn-outline btn-xs py-0.5 px-2 text-[11px]" id="drawer-btn-duplicate-text" title="Duplicate text layer"><span class="material-symbols-outlined" style="font-size:13px;">content_copy</span> Copy</button>
-              <button class="btn btn-outline btn-xs py-0.5 px-2 text-rose-400 text-[11px]" id="drawer-btn-delete-text" title="Delete text"><span class="material-symbols-outlined" style="font-size:13px;">delete</span> Del</button>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 mb-2.5">
+            <button class="btn btn-outline btn-xs py-1.5 flex items-center justify-center gap-1" id="drawer-btn-duplicate-text" title="Duplicate this text element">
+              <span class="material-symbols-outlined" style="font-size:14px;">content_copy</span> Duplicate
+            </button>
+            <button class="btn btn-outline btn-xs py-1.5 text-rose-400 flex items-center justify-center gap-1" id="drawer-btn-delete-text" title="Delete this text element">
+              <span class="material-symbols-outlined" style="font-size:14px;">delete</span> Delete
+            </button>
+          </div>
+
+          <div class="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200 flex items-start gap-2">
+            <span class="material-symbols-outlined text-indigo-400 mt-0.5" style="font-size:17px; flex-shrink:0;">tune</span>
+            <div>
+              <div class="font-semibold text-slate-100">Properties in Right Sidebar &rarr;</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">Wording, font, size, weight, alignment &amp; colors are in the Right Inspector.</div>
             </div>
-          </div>
-
-          <!-- Text content -->
-          <div class="form-group mb-3">
-            <textarea class="form-textarea" id="drawer-active-text-content" rows="2" placeholder="Enter text...">${escapeHtml(activeObj.text || '')}</textarea>
-          </div>
-
-          <!-- One-click Ready Styles -->
-          <div class="form-group mb-3">
-            <label class="form-label text-[11px] mb-1">Apply Ready Style</label>
-            <div class="ready-pills-row">
-              ${TEXT_PRESETS.map(p => `
-                <button class="ready-pill-btn py-1 px-2 text-[11px] flex items-center gap-1" data-apply-preset="${p.id}" title="Apply ${p.name} style">
-                  <span class="material-symbols-outlined" style="font-size:13px;">${p.icon}</span> ${p.name}
-                </button>
-              `).join('')}
-            </div>
-          </div>
-
-          <!-- Font Picker -->
-          <div class="form-group mb-3">
-            <label class="form-label text-[11px] mb-1">Font Family</label>
-            <div id="drawer-active-font-picker"></div>
-          </div>
-
-          <!-- Font Size Slider & Presets -->
-          <div class="form-group mb-3">
-            <div class="flex items-center justify-between mb-1">
-              <label class="form-label text-[11px] mb-0">Font Size</label>
-              <span class="text-xs font-mono text-indigo-300 font-bold" id="drawer-font-size-label">${activeObj.fontSize || 48}px</span>
-            </div>
-            <div class="size-preset-row mb-1.5">
-              ${[['24', 'Small'], ['36', 'Medium'], ['48', 'Large'], ['72', 'XL']].map(([v, name]) => `
-                <button class="size-pill py-1 text-[10px] ${Math.abs((activeObj.fontSize || 48) - v) < 4 ? 'active' : ''}" data-font-preset="${v}">${name}</button>
-              `).join('')}
-            </div>
-            <input type="range" class="form-range" id="drawer-active-font-size" min="16" max="130" step="2" value="${activeObj.fontSize || 48}" />
-          </div>
-
-          <!-- Font Weight -->
-          <div class="form-group mb-3">
-            <label class="form-label text-[11px] mb-1">Weight</label>
-            <div class="button-toggle-group">
-              ${[['400', 'Regular'], ['600', 'Semi'], ['700', 'Bold'], ['800', 'Black']].map(([w, name]) => `
-                <button class="toggle-btn text-[11px] py-1 ${(activeObj.fontWeight || '700') === w ? 'active' : ''}" data-font-weight="${w}">${name}</button>
-              `).join('')}
-            </div>
-          </div>
-
-          <!-- Color Palette -->
-          <div class="form-group mb-3">
-            <label class="form-label text-[11px] mb-1">Text Color</label>
-            <div class="color-palette-row">
-              ${presetColors.map(c => `
-                <button class="color-circle ${(activeObj.color || '').toLowerCase() === c ? 'selected' : ''}" style="background: ${c};" data-text-color="${c}"></button>
-              `).join('')}
-              <input type="color" class="color-swatch-sm" id="drawer-active-text-color-custom" value="${activeObj.color || '#ffffff'}" title="Custom Color" />
-            </div>
-          </div>
-
-          <!-- Alignment -->
-          <div class="form-group mb-3">
-            <label class="form-label text-[11px] mb-1">Alignment</label>
-            <div class="button-toggle-group">
-              <button class="toggle-btn text-[11px] py-1 ${(activeObj.align || 'center') === 'left' ? 'active' : ''}" data-align="left">Left</button>
-              <button class="toggle-btn text-[11px] py-1 ${(activeObj.align || 'center') === 'center' ? 'active' : ''}" data-align="center">Center</button>
-              <button class="toggle-btn text-[11px] py-1 ${(activeObj.align || 'center') === 'right' ? 'active' : ''}" data-align="right">Right</button>
-            </div>
-          </div>
-
-          <!-- Drop Shadow Toggle -->
-          <div class="flex items-center justify-between pt-2 border-t border-slate-700/60">
-            <span class="text-xs font-semibold text-slate-300">Drop Shadow</span>
-            <input type="checkbox" id="drawer-active-shadow" ${activeObj.shadow ? 'checked' : ''} />
           </div>
         </div>
-      ` : ''}
+      ` : `
+        <div class="p-3 bg-slate-800/20 rounded-xl border border-slate-700/40 text-xs text-slate-400 text-center mb-3">
+          <span class="material-symbols-outlined text-slate-500 mb-1" style="font-size:24px;">touch_app</span>
+          <div>Click any text element on the canvas to select it and edit its properties in the Right Inspector.</div>
+        </div>
+      `}
 
-      <div class="mt-4 pt-3 border-t border-slate-700">
+      <div class="mt-3 flex flex-col gap-2">
         <button class="btn btn-outline w-full flex items-center justify-center gap-1.5" id="btn-quick-jump-translate">
-          <span class="material-symbols-outlined" style="font-size:16px;">translate</span> Language copies & translation
+          <span class="material-symbols-outlined" style="font-size:16px;">translate</span> Language copies &amp; translation
+        </button>
+        <button class="btn btn-outline w-full flex items-center justify-center gap-1.5 text-slate-400 text-xs" id="btn-quick-jump-layers">
+          <span class="material-symbols-outlined" style="font-size:16px;">layers</span> View all screen layers
         </button>
       </div>
     `;
@@ -1459,123 +1272,13 @@ export class LeftDrawer {
       btn.onclick = () => addNewText(btn.dataset.addPreset);
     });
 
-    // Select text row
-    wrap.querySelectorAll('[data-select-text]').forEach(row => {
-      row.onclick = (e) => {
-        if (e.target.closest('[data-del-text]')) return;
-        this.store.setActiveElement(row.dataset.selectText);
-        this.renderDrawerContent();
-      };
-    });
-
-    // Delete text row
-    wrap.querySelectorAll('[data-del-text]').forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        deleteText(btn.dataset.delText);
-      };
-    });
-
-    // Active text element wiring
-    if (activeObj) {
-      // Content typing
-      const textarea = wrap.querySelector('#drawer-active-text-content');
-      if (textarea) {
-        textarea.oninput = (e) => updateActive(t => t.text = e.target.value);
-      }
-
-      // One-click apply ready style
-      wrap.querySelectorAll('[data-apply-preset]').forEach(btn => {
-        btn.onclick = () => {
-          const preset = TEXT_PRESETS.find(p => p.id === btn.dataset.applyPreset);
-          if (preset) {
-            updateActive(t => {
-              t.fontFamily = preset.style.fontFamily;
-              t.fontSize = preset.style.fontSize;
-              t.fontWeight = preset.style.fontWeight;
-              t.color = preset.style.color;
-              t.shadow = preset.style.shadow;
-              t.lineHeight = preset.style.lineHeight;
-              t.align = preset.style.align;
-            });
-            this.renderDrawerContent();
-          }
-        };
-      });
-
-      // Mount Font Picker
-      const fontSlot = wrap.querySelector('#drawer-active-font-picker');
-      if (fontSlot) {
-        mountFontPicker(fontSlot, activeObj.fontFamily || 'Plus Jakarta Sans', (font) => {
-          updateActive(t => t.fontFamily = font);
-        }, 'Text font');
-      }
-
-      // Font size slider & presets
-      const sizeInput = wrap.querySelector('#drawer-active-font-size');
-      const sizeLabel = wrap.querySelector('#drawer-font-size-label');
-      if (sizeInput) {
-        sizeInput.oninput = (e) => {
-          const val = parseFloat(e.target.value);
-          if (sizeLabel) sizeLabel.textContent = `${val}px`;
-          updateActive(t => t.fontSize = val);
-        };
-      }
-
-      wrap.querySelectorAll('[data-font-preset]').forEach(btn => {
-        btn.onclick = () => {
-          const val = parseFloat(btn.dataset.fontPreset);
-          if (sizeInput) sizeInput.value = val;
-          if (sizeLabel) sizeLabel.textContent = `${val}px`;
-          updateActive(t => t.fontSize = val);
-          wrap.querySelectorAll('[data-font-preset]').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-        };
-      });
-
-      // Font weight
-      wrap.querySelectorAll('[data-font-weight]').forEach(btn => {
-        btn.onclick = () => {
-          wrap.querySelectorAll('[data-font-weight]').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          updateActive(t => t.fontWeight = btn.dataset.fontWeight);
-        };
-      });
-
-      // Colors
-      wrap.querySelectorAll('[data-text-color]').forEach(btn => {
-        btn.onclick = () => {
-          updateActive(t => t.color = btn.dataset.textColor);
-          this.renderDrawerContent();
-        };
-      });
-
-      const customColor = wrap.querySelector('#drawer-active-text-color-custom');
-      if (customColor) {
-        customColor.oninput = (e) => updateActive(t => t.color = e.target.value);
-      }
-
-      // Alignment
-      wrap.querySelectorAll('[data-align]').forEach(btn => {
-        btn.onclick = () => {
-          wrap.querySelectorAll('[data-align]').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          updateActive(t => t.align = btn.dataset.align);
-        };
-      });
-
-      // Shadow
-      const shadowCheck = wrap.querySelector('#drawer-active-shadow');
-      if (shadowCheck) {
-        shadowCheck.onchange = (e) => updateActive(t => t.shadow = e.target.checked);
-      }
-
-      // Duplicate & Delete buttons
+    if (selectedTextObj) {
       wrap.querySelector('#drawer-btn-duplicate-text')?.addEventListener('click', duplicateText);
-      wrap.querySelector('#drawer-btn-delete-text')?.addEventListener('click', () => deleteText(activeTextItem.id));
+      wrap.querySelector('#drawer-btn-delete-text')?.addEventListener('click', () => deleteText(selectedTextId));
     }
 
     wrap.querySelector('#btn-quick-jump-translate')?.addEventListener('click', () => this.openTab('translate'));
+    wrap.querySelector('#btn-quick-jump-layers')?.addEventListener('click', () => this.openTab('layers'));
 
     container.appendChild(wrap);
   }
@@ -1864,7 +1567,7 @@ export class LeftDrawer {
     wrap.innerHTML = `
       <div class="flex items-center justify-between mb-1.5">
         <label class="form-label mb-0">Project Languages</label>
-        <span class="text-[11px] text-slate-400 font-mono">${state.languages.length} copy${state.languages.length === 1 ? '' : 'ies'}</span>
+        <span class="text-[11px] text-slate-400 font-mono">${state.languages.length} cop${state.languages.length === 1 ? 'y' : 'ies'}</span>
       </div>
       <p class="text-xs text-slate-400 mb-3">
         Select a language below to work on its elements directly on the canvas.
@@ -1873,7 +1576,7 @@ export class LeftDrawer {
       <ul class="lang-copy-list mb-4">
         ${state.languages.map((code, i) => {
           const l = langInfo(code);
-          const count = this.store.getLanguageScreens(code).length;
+          const count = (this.store.getLanguageScreens(code) || []).length;
           const isActive = code === activeCode;
           const isOrig = i === 0;
           return `

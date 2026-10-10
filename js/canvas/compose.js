@@ -6,7 +6,7 @@
 
 import { renderShape } from '../features/shapes/shapeLibrary.js';
 import { renderDevice, loadCachedImage } from './deviceFrames.js';
-import { renderWrappedText, loadFont } from '../features/text/fontManager.js';
+import { renderWrappedText, loadFont, getDefaultFontForLanguage, isFontSupportedForLanguage } from '../features/text/fontManager.js';
 import { getLayerOrder, getLayerItem } from '../state/layers.js';
 import { FEATURE_ID } from '../state/store.js';
 
@@ -91,14 +91,19 @@ function drawText(ctx, doc, key, width, lang, editor) {
   const field = doc[key];
   if (!field || field.hidden) return null;
   const isHeadline = key === 'headline';
-  const isRtl = lang === 'ar';
+  const isRtl = lang === 'ar' || lang === 'fa' || lang === 'ur';
   const empty = !field.text || !field.text.trim();
   if (empty) return null;
-  loadFont(field.fontFamily || (isHeadline ? 'Plus Jakarta Sans' : 'Inter'));
+
+  let fontToUse = field.fontFamily || getDefaultFontForLanguage(lang, isHeadline ? 'headline' : 'body');
+  if (!isFontSupportedForLanguage(fontToUse, lang)) {
+    fontToUse = getDefaultFontForLanguage(lang, isHeadline ? 'headline' : 'body');
+  }
+  loadFont(fontToUse);
 
   return renderWrappedText(ctx, {
     text: field.text,
-    fontFamily: isRtl ? 'Cairo' : (field.fontFamily || (isHeadline ? 'Plus Jakarta Sans' : 'Inter')),
+    fontFamily: fontToUse,
     fontSize: field.fontSize || (isHeadline ? 72 : 34),
     fontWeight: field.fontWeight || (isHeadline ? '800' : '400'),
     color: field.color || (isHeadline ? '#ffffff' : '#e0e7ff'),
@@ -117,8 +122,13 @@ function drawTextItem(ctx, item, width, lang, editor) {
   if (!item || item.hidden) return null;
   const empty = !item.text || !item.text.trim();
   if (empty) return null;
-  const isRtl = lang === 'ar';
-  loadFont(item.fontFamily || 'Plus Jakarta Sans');
+  const isRtl = lang === 'ar' || lang === 'fa' || lang === 'ur';
+
+  let fontToUse = item.fontFamily || getDefaultFontForLanguage(lang, 'headline');
+  if (!isFontSupportedForLanguage(fontToUse, lang)) {
+    fontToUse = getDefaultFontForLanguage(lang, 'headline');
+  }
+  loadFont(fontToUse);
 
   const x = item.x ?? width / 2;
   const y = item.y ?? 220;
@@ -126,7 +136,7 @@ function drawTextItem(ctx, item, width, lang, editor) {
 
   return renderWrappedText(ctx, {
     text: item.text,
-    fontFamily: isRtl ? 'Cairo' : (item.fontFamily || 'Plus Jakarta Sans'),
+    fontFamily: fontToUse,
     fontSize: Math.round((item.fontSize || 48) * (item.scale || 1)),
     fontWeight: item.fontWeight || '700',
     color: item.color || '#ffffff',

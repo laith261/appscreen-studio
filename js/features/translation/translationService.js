@@ -4,6 +4,8 @@
  * (Gemini, Claude or ChatGPT). Keys stay in this browser and calls go straight to the provider.
  */
 
+import { getDefaultFontForLanguage, isFontSupportedForLanguage } from '../text/fontManager.js';
+
 export const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English', flag: '🇺🇸', dir: 'ltr' },
   { code: 'es', name: 'Spanish (Español)', flag: '🇪🇸', dir: 'ltr' },
@@ -205,5 +207,21 @@ export async function buildLanguageCopy(screens, fromLang, toLang, translate = t
 
   const translated = await translateTexts(slots.map(([obj, key]) => obj[key]), fromLang, toLang);
   slots.forEach(([obj, key], i) => { obj[key] = translated[i]; });
+
+  // Adapt typography to target language script where current font does not support it
+  for (const screen of copy) {
+    if (screen.headline && !isFontSupportedForLanguage(screen.headline.fontFamily, toLang)) {
+      screen.headline.fontFamily = getDefaultFontForLanguage(toLang, 'headline');
+    }
+    if (screen.subtitle && !isFontSupportedForLanguage(screen.subtitle.fontFamily, toLang)) {
+      screen.subtitle.fontFamily = getDefaultFontForLanguage(toLang, 'body');
+    }
+    for (const shape of screen.shapes || []) {
+      if (shape.type === 'text' && !isFontSupportedForLanguage(shape.fontFamily, toLang)) {
+        shape.fontFamily = getDefaultFontForLanguage(toLang, 'headline');
+      }
+    }
+  }
+
   return copy;
 }

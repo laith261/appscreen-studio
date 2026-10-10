@@ -6,7 +6,7 @@
 
 import { guardedRender } from './renderGuard.js';
 import { mountFontPicker } from './fontPicker.js';
-import { TEXT_PRESETS } from '../features/text/fontManager.js';
+import { TEXT_PRESETS, getDefaultFontForLanguage, isFontSupportedForLanguage } from '../features/text/fontManager.js';
 import { processImageUpload } from '../canvas/imageUploader.js';
 import { activeDoc, FEATURE_ID } from '../state/store.js';
 import { showcaseOrder, renderScreenShot } from '../canvas/compose.js';
@@ -188,6 +188,7 @@ export class Inspector {
    */
   renderTextSection(container, screen, activeEl, targetObj) {
     const textTarget = targetObj || screen[activeEl] || {};
+    const label = activeEl === 'headline' ? 'Headline' : activeEl === 'subtitle' ? 'Subtitle' : 'Text';
     const previewText = textTarget.text ? (textTarget.text.length > 25 ? textTarget.text.slice(0, 23) + '…' : textTarget.text) : 'Typography & Style';
     const presetColors = ['#ffffff', '#38bdf8', '#34d399', '#fbbf24', '#f43f5e', '#a855f7', '#0f172a'];
 
@@ -321,8 +322,14 @@ export class Inspector {
       btn.onclick = () => {
         const preset = TEXT_PRESETS.find(p => p.id === btn.dataset.inspPreset);
         if (preset) {
+          const curState = this.store.getState();
+          const activeLang = curState.activeLanguage || 'en';
+          const resolvedFont = isFontSupportedForLanguage(preset.style.fontFamily, activeLang)
+            ? preset.style.fontFamily
+            : getDefaultFontForLanguage(activeLang, preset.id);
+
           updateText(t => {
-            t.fontFamily = preset.style.fontFamily;
+            t.fontFamily = resolvedFont;
             t.fontSize = preset.style.fontSize;
             t.fontWeight = preset.style.fontWeight;
             t.color = preset.style.color;
@@ -335,8 +342,17 @@ export class Inspector {
       };
     });
 
-    // Font picker
-    mountFontPicker(container.querySelector('#clean-font-picker'), textTarget.fontFamily || 'Plus Jakarta Sans', (font) => updateText(t => t.fontFamily = font), `${label} font`);
+    // Font picker (language-aware)
+    const curState = this.store.getState();
+    const activeLang = curState.activeLanguage || 'en';
+    const currentFont = textTarget.fontFamily || getDefaultFontForLanguage(activeLang, activeEl === 'headline' ? 'headline' : 'body');
+    mountFontPicker(
+      container.querySelector('#clean-font-picker'),
+      currentFont,
+      (font) => updateText(t => t.fontFamily = font),
+      `${label} font`,
+      { lang: activeLang }
+    );
 
     // Font size
     const sizeInput = container.querySelector('#clean-text-size');
@@ -470,17 +486,55 @@ export class Inspector {
     const dev = devItem || screen.device || {};
     const devId = dev.id || 'device';
 
+    const styles = [
+      { type: 'modern_phone', icon: 'smartphone', name: 'Modern' },
+      { type: 'minimal', icon: 'stay_current_portrait', name: 'Slim' },
+      { type: 'frameless', icon: 'aspect_ratio', name: 'Frameless' },
+      { type: 'tablet', icon: 'tablet_android', name: 'Tablet' }
+    ];
+    const colors = [
+      { hex: '#0f172a', name: 'Midnight' }, { hex: '#374151', name: 'Graphite' },
+      { hex: '#cbd5e1', name: 'Silver' }, { hex: '#f8fafc', name: 'White' },
+      { hex: '#b08d57', name: 'Gold' }, { hex: '#1e3a8a', name: 'Blue' }
+    ];
+    const curColor = (dev.color || '#0f172a').toLowerCase();
+
     container.innerHTML = `
       <div class="insp-card">
         <div class="insp-header-row mb-3 flex items-center justify-between">
           <div>
             <h4 class="insp-heading mb-0">Phone Mockup</h4>
-            <span class="insp-subheading">Device Frame</span>
+            <span class="insp-subheading">Device Frame Properties</span>
           </div>
           <div class="flex items-center gap-1.5">
             <button class="btn btn-outline btn-xs" id="clean-duplicate-device" title="Duplicate frame"><span class="material-symbols-outlined" style="font-size:14px;">content_copy</span> Copy</button>
             <button class="btn btn-danger btn-xs" id="clean-delete-device" title="Delete device frame"><span class="material-symbols-outlined" style="font-size:14px;">delete</span> Delete Frame</button>
           </div>
+        </div>
+
+        <!-- Frame Model / Style -->
+        <div class="form-group mb-3">
+          <label class="form-label mb-1.5">Frame Style</label>
+          <div class="frame-style-grid mb-2">
+            ${styles.map(f => `
+              <button type="button" class="frame-card ${dev.type === f.type ? 'active' : ''}" data-insp-frame-type="${f.type}">
+                <span class="frame-icon material-symbols-outlined" style="font-size:20px;">${f.icon}</span>
+                <span class="frame-name">${f.name}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Frame Color -->
+        <div class="form-group mb-3">
+          <label class="form-label mb-1.5">Frame Color</label>
+          <div class="frame-color-row mb-2">
+            ${colors.map(c => `
+              <button type="button" class="frame-color-swatch ${curColor === c.hex ? 'active' : ''}" data-insp-frame-color="${c.hex}" title="${c.name}" style="background:${c.hex}"></button>
+            `).join('')}
+            <input type="color" class="color-swatch-sm" id="insp-frame-color-custom" value="${curColor}" title="Custom color" />
+          </div>
+          <button type="button" class="btn btn-outline btn-xs w-full mt-1.5" id="insp-frame-apply-all">Apply style &amp; color to all screens</button>
         </div>
 
         <input type="file" id="clean-device-upload-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden" />
@@ -543,6 +597,11 @@ export class Inspector {
         </div>
 
         <div class="form-group mb-3">
+          <label class="form-label">Phone Rotation (${dev.rotation || 0}°)</label>
+          <input type="range" class="form-range" id="clean-device-rotation" min="-45" max="45" step="1" value="${dev.rotation || 0}" />
+        </div>
+
+        <div class="form-group mb-3">
           <label class="form-label">Drop Shadow Intensity</label>
           <input type="range" class="form-range" id="clean-device-shadow" min="0" max="80" step="5" value="${dev.shadowBlur || 45}" />
         </div>
@@ -579,6 +638,43 @@ export class Inspector {
         if (targetDev) cb(targetDev);
       });
     };
+
+    container.querySelectorAll('[data-insp-frame-type]').forEach(btn => {
+      btn.onclick = () => updateDev(d => d.type = btn.dataset.inspFrameType);
+    });
+
+    container.querySelectorAll('[data-insp-frame-color]').forEach(btn => {
+      btn.onclick = () => updateDev(d => d.color = btn.dataset.inspFrameColor);
+    });
+
+    const customColorInput = container.querySelector('#insp-frame-color-custom');
+    if (customColorInput) customColorInput.oninput = (e) => updateDev(d => d.color = e.target.value);
+
+    const rotSlider = container.querySelector('#clean-device-rotation');
+    if (rotSlider) rotSlider.oninput = (e) => updateDev(d => d.rotation = parseInt(e.target.value, 10));
+
+    const applyAllBtn = container.querySelector('#insp-frame-apply-all');
+    if (applyAllBtn) {
+      applyAllBtn.onclick = () => {
+        this.store.update(state => {
+          (state.screens || []).forEach(sc => {
+            if (sc.device) {
+              sc.device.type = dev.type;
+              sc.device.color = dev.color;
+            }
+            if (Array.isArray(sc.devices)) {
+              sc.devices.forEach(d => {
+                d.type = dev.type;
+                d.color = dev.color;
+              });
+            }
+          });
+        });
+        if (typeof window !== 'undefined' && window.customAlert) {
+          window.customAlert({ title: 'Frame Style Applied', message: 'Applied this device style and color across all screens.', icon: 'check_circle' });
+        }
+      };
+    }
 
     container.querySelectorAll('[data-insp-image-fit]').forEach(btn => {
       btn.onclick = () => updateDev(d => d.imageFit = btn.dataset.inspImageFit);

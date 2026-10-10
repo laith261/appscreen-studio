@@ -5,18 +5,131 @@
  */
 
 export const POPULAR_FONTS = [
-  { name: 'Plus Jakarta Sans', category: 'Sans-Serif', weights: [400, 600, 700, 800] },
-  { name: 'Inter', category: 'Sans-Serif', weights: [400, 500, 600, 700] },
-  { name: 'Poppins', category: 'Sans-Serif', weights: [400, 600, 700, 800] },
-  { name: 'Montserrat', category: 'Sans-Serif', weights: [400, 600, 700, 800, 900] },
-  { name: 'Roboto', category: 'Android Standard', weights: [400, 500, 700, 900] },
-  { name: 'Outfit', category: 'Modern Geometric', weights: [400, 600, 700, 800] },
-  { name: 'Oswald', category: 'Condensed & Punchy', weights: [400, 600, 700] },
-  { name: 'Playfair Display', category: 'Elegant Serif', weights: [400, 700, 900] },
-  { name: 'Anton', category: 'Ultra Bold Promo', weights: [400] },
-  { name: 'Cairo', category: 'Arabic & Modern Sans', weights: [400, 600, 700, 800] },
-  { name: 'Caveat', category: 'Handwritten', weights: [400, 700] }
+  // --- Modern Latin / Universal Fonts ---
+  { name: 'Plus Jakarta Sans', category: 'Modern Tech Sans', weights: [400, 600, 700, 800], scripts: ['latin'] },
+  { name: 'Inter', category: 'Clean UI Sans', weights: [400, 500, 600, 700], scripts: ['latin', 'cyrillic', 'greek'] },
+  { name: 'Poppins', category: 'Geometric Sans', weights: [400, 600, 700, 800], scripts: ['latin', 'devanagari'] },
+  { name: 'Montserrat', category: 'Punchy Heading Sans', weights: [400, 600, 700, 800, 900], scripts: ['latin', 'cyrillic'] },
+  { name: 'Roboto', category: 'Android Standard', weights: [400, 500, 700, 900], scripts: ['latin', 'cyrillic', 'greek'] },
+  { name: 'Outfit', category: 'Modern Geometric', weights: [400, 600, 700, 800], scripts: ['latin'] },
+  { name: 'Oswald', category: 'Condensed Display', weights: [400, 600, 700], scripts: ['latin', 'cyrillic'] },
+  { name: 'Playfair Display', category: 'Elegant Serif', weights: [400, 700, 900], scripts: ['latin', 'cyrillic'] },
+  { name: 'Anton', category: 'Ultra Bold Promo', weights: [400], scripts: ['latin'] },
+  { name: 'Caveat', category: 'Handwritten Casual', weights: [400, 700], scripts: ['latin', 'cyrillic'] },
+
+  // --- Arabic & RTL Fonts (Curated for Google Play AppScreens) ---
+  { name: 'Cairo', category: 'Modern Arabic & Sans', weights: [400, 600, 700, 800], scripts: ['arabic', 'latin'] },
+  { name: 'Tajawal', category: 'Clean Arabic Sans', weights: [400, 500, 700, 800], scripts: ['arabic', 'latin'] },
+  { name: 'Almarai', category: 'Contemporary Tech Arabic', weights: [400, 700, 800], scripts: ['arabic'] },
+  { name: 'Readex Pro', category: 'Accessible Tech Arabic', weights: [400, 500, 600, 700], scripts: ['arabic', 'latin'] },
+  { name: 'IBM Plex Sans Arabic', category: 'Corporate Tech Arabic', weights: [400, 600, 700], scripts: ['arabic'] },
+  { name: 'Amiri', category: 'Classical Naskh Serif', weights: [400, 700], scripts: ['arabic'] },
+
+  // --- Asian Fonts ---
+  { name: 'Noto Sans JP', category: 'Modern Japanese Sans', weights: [400, 500, 700], scripts: ['japanese', 'latin'] },
+  { name: 'Noto Sans KR', category: 'Modern Korean Sans', weights: [400, 500, 700], scripts: ['korean', 'latin'] },
+  { name: 'Noto Sans SC', category: 'Simplified Chinese Sans', weights: [400, 500, 700], scripts: ['chinese', 'latin'] }
 ];
+
+/**
+ * Checks if a given font supports the script of the target language.
+ * @param {string} fontName
+ * @param {string} langCode
+ * @returns {boolean}
+ */
+export function isFontSupportedForLanguage(fontName, langCode) {
+  if (!fontName) return false;
+  const font = POPULAR_FONTS.find(f => f.name.toLowerCase() === fontName.toLowerCase());
+  if (!font) return true; // allow custom / external fonts
+  const code = (langCode || 'en').toLowerCase().split('-')[0];
+  if (code === 'ar' || code === 'fa' || code === 'ur') {
+    return font.scripts?.includes('arabic');
+  }
+  if (code === 'ja') {
+    return font.scripts?.includes('japanese');
+  }
+  if (code === 'ko') {
+    return font.scripts?.includes('korean');
+  }
+  if (code === 'zh') {
+    return font.scripts?.includes('chinese');
+  }
+  if (code === 'ru' || code === 'uk') {
+    return font.scripts?.includes('cyrillic');
+  }
+  return font.scripts?.includes('latin');
+}
+
+/**
+ * Returns the recommended default font for a specific language and layer role.
+ * @param {string} langCode
+ * @param {string} type 'headline' | 'subtitle' | 'eyebrow' | 'callout' | 'caption' | 'body'
+ * @returns {string} Font family name
+ */
+export function getDefaultFontForLanguage(langCode, type = 'headline') {
+  const code = (langCode || 'en').toLowerCase().split('-')[0];
+  if (code === 'ar' || code === 'fa' || code === 'ur') {
+    return (type === 'headline' || type === 'callout') ? 'Cairo' : 'Tajawal';
+  }
+  if (code === 'ja') {
+    return 'Noto Sans JP';
+  }
+  if (code === 'ko') {
+    return 'Noto Sans KR';
+  }
+  if (code === 'zh') {
+    return 'Noto Sans SC';
+  }
+  if (code === 'ru' || code === 'uk') {
+    return (type === 'headline' || type === 'callout') ? 'Montserrat' : 'Inter';
+  }
+  return (type === 'headline' || type === 'eyebrow') ? 'Plus Jakarta Sans' : (type === 'callout' ? 'Outfit' : 'Inter');
+}
+
+/**
+ * Returns fonts categorized as recommended for the specified language vs others.
+ * @param {string} langCode
+ * @returns {{ recommended: Array, others: Array, all: Array }}
+ */
+export function getRecommendedFontsForLanguage(langCode) {
+  const code = (langCode || 'en').toLowerCase().split('-')[0];
+  const recommended = [];
+  const others = [];
+
+  POPULAR_FONTS.forEach(font => {
+    let matches = false;
+    if (code === 'ar' || code === 'fa' || code === 'ur') {
+      matches = font.scripts?.includes('arabic');
+    } else if (code === 'ja') {
+      matches = font.scripts?.includes('japanese');
+    } else if (code === 'ko') {
+      matches = font.scripts?.includes('korean');
+    } else if (code === 'zh') {
+      matches = font.scripts?.includes('chinese');
+    } else if (code === 'ru' || code === 'uk') {
+      matches = font.scripts?.includes('cyrillic');
+    } else {
+      matches = font.scripts?.includes('latin');
+    }
+
+    if (matches) {
+      recommended.push({ ...font, isRecommended: true });
+    } else {
+      others.push({ ...font, isRecommended: false });
+    }
+  });
+
+  return { recommended, others, all: [...recommended, ...others] };
+}
+
+/**
+ * Pre-loads the recommended fonts for the given language into the document.
+ * @param {string} langCode
+ */
+export function ensureLanguageFontsLoaded(langCode) {
+  const { recommended } = getRecommendedFontsForLanguage(langCode);
+  recommended.forEach(f => loadFont(f.name));
+}
 
 // Track loaded font families in the DOM
 const loadedFonts = new Set();
@@ -26,7 +139,7 @@ const loadedFonts = new Set();
  * @param {string} fontFamily
  */
 export function loadFont(fontFamily) {
-  if (!fontFamily || loadedFonts.has(fontFamily)) return;
+  if (typeof document === 'undefined' || !fontFamily || loadedFonts.has(fontFamily)) return;
 
   try {
     const fontDef = POPULAR_FONTS.find(f => f.name.toLowerCase() === fontFamily.toLowerCase());

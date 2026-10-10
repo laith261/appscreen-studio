@@ -1371,6 +1371,28 @@ button.frame-card { font: inherit; color: inherit; text-align: left; width: 100%
 .font-picker-name { font-size: 16px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .font-picker-sample { font-size: 20px; line-height: 1; color: var(--text-muted); grid-row: span 2; }
 .font-picker-cat { font-size: 10.5px; color: var(--text-dim); }
+.font-picker-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-primary);
+  padding: 8px 10px 4px;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 4px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.font-picker-header:first-child {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 4px;
+}
+.font-picker-header-secondary {
+  color: var(--text-dim);
+}
 
 /* Custom Saved Design Templates */
 .save-design-cta-card {

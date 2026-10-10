@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "appscreen": {
+      "command": "node",
+      "args": ["/path/to/appscreen/mcp/server.js"],
+      "description": "AppScreen Studio - Google Play Store screenshot generator, validator, and localization MCP server"
+    }
+  }
+}

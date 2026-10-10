@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: Web](https://img.shields.io/badge/Platform-Web-brightgreen.svg)]()
 [![Google Play Compliant](https://img.shields.io/badge/Google%20Play-1080x1920%20%7C%201080x2400%20%7C%201024x500-blueviolet.svg)]()
+[![MCP Server](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](docs/MCP_GUIDE.md)
 
 **AppScreen Studio** is a client-side web application and design suite for crafting high-converting Google Play Store listing screenshots, realistic device mockups, promotional badges, multilingual localized copies, and feature graphics.
 
@@ -99,6 +100,12 @@ appscreen-studio/
 │   │   ├── storage/            # Serverless IndexedDB & localStorage persistence engine
 │   │   └── export/             # High-res canvas export and project JSON backup
 │   └── ui/                     # Left drawer dock, inspector, context menu, filmstrip, modals
+├── mcp/                        # Model Context Protocol (MCP) Server for AI Agents
+│   ├── server.js               # Stdio JSON-RPC 2.0 server entrypoint
+│   ├── tools.js                # 19 programmatic tools (create, update, validate, fonts, palettes, etc.)
+│   ├── resources.js            # Schemas, templates, devices, and guidelines
+│   ├── prompts.js              # Guided AI prompt workflows
+│   └── svgRenderer.js          # Headless vector SVG rendering engine
 └── tests/                      # Automated unit test suite
 ```
 
@@ -158,7 +165,36 @@ node tests/store.check.mjs
 node tests/persistence.check.mjs
 node tests/translation_manual.check.mjs
 node tests/context_menu.check.mjs
+node tests/mcp_server.check.mjs
 ```
+
+---
+
+## 🤖 Model Context Protocol (MCP) Server for AI Agents
+
+AppScreen Studio provides a built-in **MCP server** allowing any AI agent (Claude Desktop, Cursor, Antigravity, Windsurf, Roo Code, VS Code Copilot, Cline, etc.) to programmatically build, translate, validate, and render Play Store screenshots.
+
+### 🔌 Connecting an AI Agent
+Add to your Claude Desktop config (`claude_desktop_config.json`), Cursor (`.cursor/mcp.json`), or Antigravity / Windsurf settings:
+
+```json
+{
+  "mcpServers": {
+    "appscreen": {
+      "command": "node",
+      "args": ["/absolute/path/to/appscreen/mcp/server.js"]
+    }
+  }
+}
+```
+
+### ⚡ Highlights:
+- **19 Programmatic Tools:** `create_project`, `add_screen`, `update_screen` (with screenshot attachment, custom fonts & device styling), `apply_palette`, `list_fonts`, `add_badge_to_screen`, `localize_project` (with native Arabic RTL & Cairo font), `generate_feature_graphic`, `validate_project`, and `render_screen_svg`.
+- **7 MCP Resources:** Templates, devices, palettes, fonts, badges, schema, and Google Play Store quality guidelines (`appscreen://...`).
+- **3 Guided Prompts:** High-converting listing generator, market localization, and feature graphic creator.
+- **Zero External Dependencies:** Built with pure Node.js stdio JSON-RPC 2.0.
+
+📖 For complete documentation and integration examples, see the [MCP Server Guide](MCP.md) (or [docs/MCP_GUIDE.md](docs/MCP_GUIDE.md)).
 
 ---
 

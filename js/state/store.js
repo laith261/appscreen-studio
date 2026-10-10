@@ -3,6 +3,8 @@
  * Manages project configuration, screens, active selection, undo/redo history, and localization.
  */
 
+import { ensureLanguageFontsLoaded, isFontSupportedForLanguage, getDefaultFontForLanguage } from '../features/text/fontManager.js';
+
 export const FEATURE_ID = 'feature';
 
 /**
@@ -248,6 +250,8 @@ export class Store {
     if (lang === s.activeLanguage || !s.localeScreens[lang]) return;
     const onFeature = s.activeScreenId === FEATURE_ID;
     const index = Math.max(0, s.screens.findIndex(sc => sc.id === s.activeScreenId));
+    ensureLanguageFontsLoaded(lang);
+
     this.update(state => {
       state.localeScreens[state.activeLanguage] = state.screens;
       state.localeFeature[state.activeLanguage] = state.feature;
@@ -258,6 +262,21 @@ export class Store {
       state.activeLanguage = lang;
       state.activeScreenId = onFeature ? FEATURE_ID : (state.screens[index] || state.screens[0]).id;
       state.activeElementId = null;
+
+      // Adapt fonts in this language copy if an element has an incompatible typeface
+      (state.screens || []).forEach(sc => {
+        if (sc.headline && !isFontSupportedForLanguage(sc.headline.fontFamily, lang)) {
+          sc.headline.fontFamily = getDefaultFontForLanguage(lang, 'headline');
+        }
+        if (sc.subtitle && !isFontSupportedForLanguage(sc.subtitle.fontFamily, lang)) {
+          sc.subtitle.fontFamily = getDefaultFontForLanguage(lang, 'body');
+        }
+        (sc.shapes || []).forEach(sh => {
+          if (sh.type === 'text' && !isFontSupportedForLanguage(sh.fontFamily, lang)) {
+            sh.fontFamily = getDefaultFontForLanguage(lang, 'headline');
+          }
+        });
+      });
     });
   }
 
