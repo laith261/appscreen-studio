@@ -610,9 +610,15 @@
             <span class="dash-meta">${p.screens} screen${p.screens === 1 ? '' : 's'} · edited ${timeAgo(p.updated)}</span>
             <span class="dash-meta dash-langs"></span>
             <div class="dash-actions">
-              <a class="btn btn-outline btn-sm flex items-center gap-1" href="${href}"><span class="material-symbols-outlined" style="font-size:15px;">open_in_new</span> Open</a>
-              <button class="btn btn-outline btn-sm btn-backup flex items-center gap-1" title="Download JSON Backup"><span class="material-symbols-outlined" style="font-size:15px;">download</span> Backup</button>
-              <button class="btn btn-danger btn-sm btn-delete flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:15px;">delete</span></button>
+              <button class="btn btn-outline btn-sm btn-backup flex items-center gap-1" title="Download JSON Backup" style="flex:1; justify-content:center;">
+                <span class="material-symbols-outlined" style="font-size:15px;">download</span> Backup
+              </button>
+              <button class="btn btn-outline btn-sm btn-duplicate flex items-center justify-center" title="Duplicate project" aria-label="Duplicate project" style="padding:6px 10px;">
+                <span class="material-symbols-outlined" style="font-size:16px;">content_copy</span>
+              </button>
+              <button class="btn btn-danger btn-sm btn-delete flex items-center justify-center" title="Delete project" aria-label="Delete project" style="padding:6px 10px;">
+                <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+              </button>
             </div>
           </div>`;
         card.querySelector('.dash-name').textContent = p.name;
@@ -635,6 +641,25 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+          }
+        };
+
+        // Duplicate project
+        card.querySelector('.btn-duplicate').onclick = async (e) => {
+          e.stopPropagation();
+          try {
+            let proj = p.isFile && p.filename ? await fetch(p.filename).then(r => r.json()).catch(() => null) : await idbGetProject(p.id);
+            if (!proj) {
+              customAlert({ title: 'Error', message: 'Could not load project to copy.', type: 'danger' });
+              return;
+            }
+            const copy = JSON.parse(JSON.stringify(proj));
+            copy.projectName = `${copy.projectName || p.name || 'Project'} (Copy)`;
+            const newId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+            await idbSaveProject(newId, copy, p.thumbnail || null);
+            await load();
+          } catch (err) {
+            customAlert({ title: 'Duplicate Failed', message: err.message || 'Could not duplicate project', type: 'danger' });
           }
         };
 
