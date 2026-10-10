@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCP Server & AI Agent Guide - AppScreen Studio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons&display=block" />
+  <link rel="stylesheet" href="css/style.css?v=42" />
+  <link rel="stylesheet" href="css/components.css?v=42" />
+  <script>
+    try { document.documentElement.setAttribute('data-theme', localStorage.getItem('appscreen_studio_theme') || 'dark'); } catch (e) {}
+  </script>
+  <style>
+    body {
+      overflow-y: auto;
+      height: auto;
+      min-height: 100vh;
+      background: var(--bg-app);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+    .mcp-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 36px 20px 80px;
+    }
+    .mcp-hero {
+      position: relative;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(16, 185, 129, 0.12) 50%, rgba(15, 23, 42, 0.8));
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      border-radius: var(--radius-lg, 18px);
+      padding: 44px 40px;
+      margin-bottom: 40px;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    }
+    .mcp-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(99, 102, 241, 0.18);
+      border: 1px solid rgba(99, 102, 241, 0.45);
+      color: #818cf8;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      margin-bottom: 18px;
+    }
+    .mcp-title {
+      font-size: 34px;
+      font-weight: 800;
+      line-height: 1.25;
+      margin-bottom: 14px;
+      color: var(--text-main);
+    }
+    .mcp-desc {
+      font-size: 16px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      max-width: 820px;
+      margin-bottom: 24px;
+    }
+    .mcp-hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .stat-card {
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .stat-val {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--accent-primary);
+    }
+    .stat-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .section-card {
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 28px;
+      margin-bottom: 32px;
+    }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .section-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .config-tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 16px;
+      overflow-x: auto;
+    }
+    .config-tab {
+      background: none;
+      border: none;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .config-tab.active {
+      color: var(--accent-primary);
+      border-bottom-color: var(--accent-primary);
+    }
+    .code-box {
+      position: relative;
+      background: #090d16;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-sm);
+      padding: 18px 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #e2e8f0;
+      overflow-x: auto;
+      line-height: 1.55;
+    }
+    .btn-copy {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #f8fafc;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s;
+    }
+    .btn-copy:hover {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+    }
+    .tool-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+    }
+    .tool-table th, .tool-table td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 13px;
+    }
+    .tool-table th {
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    .tool-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: #818cf8;
+      background: rgba(99, 102, 241, 0.1);
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+    .badge-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      display: inline-block;
+    }
+    .badge-core { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .badge-style { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+    .badge-check { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .prompt-bubble {
+      background: rgba(255, 255, 255, 0.04);
+      border-left: 3px solid var(--accent-primary);
+      padding: 14px 18px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      font-style: italic;
+      color: var(--text-main);
+      margin-bottom: 14px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-logo-icon"><span class="material-symbols-outlined" style="font-size:22px; color:#ffffff;">smart_toy</span></div>
+      <div class="brand-text"><h1>AppScreen Studio</h1></div>
+      <span class="brand-badge">MCP Server</span>
+    </div>
+    <div class="header-right" style="display:flex; align-items:center; gap:10px;">
+      <a href="./" class="btn btn-outline btn-sm flex items-center gap-1.5">
+        <span class="material-symbols-outlined" style="font-size:16px;">arrow_back</span>
+        <span>Projects</span>
+      </a>
+      <a href="editor.html?new=true" class="btn btn-primary btn-sm flex items-center gap-1.5">
+        <span class="material-symbols-outlined" style="font-size:16px;">edit</span>
+        <span>Launch Studio</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="mcp-container">
+    <!-- Hero Banner -->
+    <div class="mcp-hero">
+      <div class="mcp-badge">
+        <span class="material-symbols-outlined" style="font-size:15px;">hub</span>
+        <span>Model Context Protocol (MCP) Standard</span>
+      </div>
+      <h1 class="mcp-title">Build &amp; Automate Google Play Screenshots with AI Agents</h1>
+      <p class="mcp-desc">
+        AppScreen Studio includes a built-in, zero-dependency MCP server conforming to the <b>2024-11-05 MCP specification</b>. 
+        Connect Claude Desktop, Cursor, Antigravity, Windsurf, Roo Code, or Cline directly to generate, style, localize, and render complete app listing suites programmatically.
+      </p>
+      <div class="mcp-hero-actions">
+        <a href="#quickstart" class="btn btn-primary flex items-center gap-1.5">
+          <span class="material-symbols-outlined" style="font-size:18px;">terminal</span>
+          <span>Quick Setup</span>
+        </a>
+        <a href="#tools" class="btn btn-outline flex items-center gap-1.5">
+          <span class="material-symbols-outlined" style="font-size:18px;">construction</span>
+          <span>Browse 19 Tools</span>
+        </a>
+        <a href="MCP.md" target="_blank" class="btn btn-outline flex items-center gap-1.5">
+          <span class="material-symbols-outlined" style="font-size:18px;">description</span>
+          <span>Open MCP.md Reference</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-val">19</span>
+        <span class="stat-label">Programmatic MCP Tools</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-val">7</span>
+        <span class="stat-label">System Resources (`appscreen://`)</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-val">3</span>
+        <span class="stat-label">AI Guided Prompts</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-val">0</span>
+        <span class="stat-label">External Dependencies (Pure Node.js)</span>
+      </div>
+    </div>
+
+    <!-- Quickstart Config Section -->
+    <section class="section-card" id="quickstart">
+      <div class="section-head">
+        <div class="section-title">
+          <span class="material-symbols-outlined" style="color:var(--accent-primary);">settings_input_component</span>
+          <span>AI Agent Configuration</span>
+        </div>
+        <span class="text-xs text-slate-400">Pure stdio JSON-RPC 2.0</span>
+      </div>
+      <p class="text-sm text-slate-300 mb-4">
+        Add the snippet below to your AI assistant's MCP configuration file. Replace the path with the location of your cloned repository.
+      </p>
+
+      <div class="config-tabs" role="tablist">
+        <button class="config-tab active" data-tab="claude">Claude Desktop</button>
+        <button class="config-tab" data-tab="cursor">Cursor IDE</button>
+        <button class="config-tab" data-tab="antigravity">Antigravity / Windsurf / Cline</button>
+      </div>
+
+      <div class="code-box">
+        <button class="btn-copy" id="btn-copy-code" title="Copy to clipboard">
+          <span class="material-symbols-outlined" style="font-size:15px;">content_copy</span>
+          <span id="copy-btn-text">Copy</span>
+        </button>
+        <pre id="config-code-pre"><code>{
+  "mcpServers": {
+    "appscreen": {
+      "command": "node",
+      "args": ["/path/to/appscreen/mcp/server.js"]
+    }
+  }
+}</code></pre>
+      </div>
+      <p class="text-xs text-slate-400 mt-3">
+        💡 <b>File Locations:</b> macOS Claude Desktop: <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> • Cursor: <code>.cursor/mcp.json</code>
+      </p>
+    </section>
+
+    <!-- Complete 19 Tools Reference -->
+    <section class="section-card" id="tools">
+      <div class="section-head">
+        <div class="section-title">
+          <span class="material-symbols-outlined" style="color:var(--accent-primary);">handyman</span>
+          <span>Complete Suite of 19 Tools</span>
+        </div>
+        <span class="badge-pill badge-core">100% Feature Parity</span>
+      </div>
+      <p class="text-sm text-slate-300 mb-4">
+        Every capability available in the studio interface is exposed to AI agents with full validation and error recovery:
+      </p>
+
+      <div style="overflow-x:auto;">
+        <table class="tool-table">
+          <thead>
+            <tr>
+              <th>Tool Name</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th>Key Parameters</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tool-name">create_project</span></td>
+              <td><span class="badge-pill badge-core">Project</span></td>
+              <td>Generates a compliant store listing with phone/tablet dimensions or from curated templates.</td>
+              <td><code>project_name</code>, <code>template_id</code>, <code>canvas_preset</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">inspect_project</span></td>
+              <td><span class="badge-pill badge-check">Audit</span></td>
+              <td>Returns structured metadata, screen counts, char lengths, device frames, and compliance state.</td>
+              <td><code>file_path</code>, <code>project_data</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">add_screen</span></td>
+              <td><span class="badge-pill badge-core">Canvas</span></td>
+              <td>Appends a new styled screen with headlines, subtitles, gradient backgrounds, and badges.</td>
+              <td><code>headline_text</code>, <code>subtitle_text</code>, <code>color1</code>, <code>color2</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">update_screen</span></td>
+              <td><span class="badge-pill badge-core">Canvas</span></td>
+              <td>Modifies texts, colors, custom fonts, tilt rotation, scale, and embeds local app screenshots.</td>
+              <td><code>screen_index_or_id</code>, <code>headline_font</code>, <code>screenshot_path</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">remove_screen</span></td>
+              <td><span class="badge-pill badge-core">Canvas</span></td>
+              <td>Removes a screen from the project by numeric index or ID.</td>
+              <td><code>screen_index_or_id</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">apply_palette</span></td>
+              <td><span class="badge-pill badge-style">Theme</span></td>
+              <td>Applies a curated gradient/solid color palette across all screens or to a specific screen in one call.</td>
+              <td><code>palette_id</code>, <code>screen_index_or_id</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">list_fonts</span></td>
+              <td><span class="badge-pill badge-style">Typography</span></td>
+              <td>Queries Google Fonts and returns recommended default fonts per language (Arabic, Japanese, etc.).</td>
+              <td><code>language_code</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">list_palettes</span></td>
+              <td><span class="badge-pill badge-style">Theme</span></td>
+              <td>Lists curated listing themes: Electric Indigo, Cyber Emerald, Sunset Coral, Obsidian &amp; Gold.</td>
+              <td><i>(none)</i></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">list_templates</span></td>
+              <td><span class="badge-pill badge-core">Templates</span></td>
+              <td>Lists ready-made Play Store listing templates (SaaS, Dark Fintech, Fitness, Food Delivery, Travel).</td>
+              <td><code>category</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">get_template</span></td>
+              <td><span class="badge-pill badge-core">Templates</span></td>
+              <td>Retrieves complete screen layers, typography, and styling for a template ID.</td>
+              <td><code>template_id</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">list_devices</span></td>
+              <td><span class="badge-pill badge-core">Device</span></td>
+              <td>Returns supported mockups: modern punch-hole flagship, minimalist phone, frameless, and tablets.</td>
+              <td><i>(none)</i></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">list_badges</span></td>
+              <td><span class="badge-pill badge-style">Badges</span></td>
+              <td>Lists trust badges, rating pills (★ 4.9), download counters (🚀 50M+), and floating UI cards.</td>
+              <td><code>category</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">add_badge_to_screen</span></td>
+              <td><span class="badge-pill badge-style">Badges</span></td>
+              <td>Inserts a rating seal, floating notification toast, or security badge onto a screen.</td>
+              <td><code>screen_index_or_id</code>, <code>label</code>, <code>badge_type</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">localize_project</span></td>
+              <td><span class="badge-pill badge-core">i18n</span></td>
+              <td>Localizes listing into any language with native RTL mirroring and Arabic Cairo typography.</td>
+              <td><code>language_code</code>, <code>translations</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">generate_feature_graphic</span></td>
+              <td><span class="badge-pill badge-core">Store Asset</span></td>
+              <td>Creates the mandatory 1024×500 Google Play Feature Graphic matching listing branding.</td>
+              <td><code>headline_text</code>, <code>subtitle_text</code>, <code>color1</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">validate_project</span></td>
+              <td><span class="badge-pill badge-check">Compliance</span></td>
+              <td>Strict ASO audit: screen counts (4–8), char limits (&lt;45 hl, &lt;85 sub), and missing assets.</td>
+              <td><code>file_path</code>, <code>project_data</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">render_screen_svg</span></td>
+              <td><span class="badge-pill badge-check">Visual</span></td>
+              <td>Renders self-contained vector SVG representation for headless visual inspection without a browser.</td>
+              <td><code>screen_index_or_id</code>, <code>language_code</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">save_project_file</span></td>
+              <td><span class="badge-pill badge-core">Storage</span></td>
+              <td>Saves an AppScreen project JSON object to a designated file path on disk.</td>
+              <td><code>file_path</code>, <code>project_data</code></td>
+            </tr>
+            <tr>
+              <td><span class="tool-name">load_project_file</span></td>
+              <td><span class="badge-pill badge-core">Storage</span></td>
+              <td>Loads and parses an AppScreen project JSON file from disk.</td>
+              <td><code>file_path</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Example Prompts -->
+    <section class="section-card">
+      <div class="section-head">
+        <div class="section-title">
+          <span class="material-symbols-outlined" style="color:var(--accent-primary);">chat</span>
+          <span>Sample Prompts to Give to Your AI Agent</span>
+        </div>
+      </div>
+
+      <div class="prompt-bubble">
+        "Create a complete 5-screen Google Play Store listing for my fitness tracking app 'PulseFit'. Use a dark theme with Cyber Emerald accents, modern phone mockups, add a '★ 4.9 Rating' badge on screen 1, and validate Google Play compliance before saving to pulsefit.json."
+      </div>
+
+      <div class="prompt-bubble">
+        "Localize our SaaS screenshot project to Arabic. Mirror the alignment for RTL, set the font family to 'Cairo', and verify all headline character lengths are under 45 characters."
+      </div>
+
+      <div class="prompt-bubble">
+        "Inspect my existing project file 'fintech_listing.json', audit it against Google Play Store screenshot policies, and generate a matching 1024×500 Feature Graphic banner."
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Tab switching for config snippets
+    const tabs = document.querySelectorAll('.config-tab');
+    const pre = document.querySelector('#config-code-pre code');
+    const configs = {
+      claude: `{\n  "mcpServers": {\n    "appscreen": {\n      "command": "node",\n      "args": ["/path/to/appscreen/mcp/server.js"]\n    }\n  }\n}`,
+      cursor: `{\n  "mcpServers": {\n    "appscreen": {\n      "command": "node",\n      "args": ["/path/to/appscreen/mcp/server.js"]\n    }\n  }\n}`,
+      antigravity: `{\n  "mcpServers": {\n    "appscreen": {\n      "command": "node",\n      "args": ["/path/to/appscreen/mcp/server.js"]\n    }\n  }\n}`
+    };
+
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        const key = btn.dataset.tab;
+        pre.textContent = configs[key] || configs.claude;
+      });
+    });
+
+    // Copy to clipboard
+    const copyBtn = document.getElementById('btn-copy-code');
+    const copyText = document.getElementById('copy-btn-text');
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(pre.textContent);
+        copyText.textContent = 'Copied!';
+        copyBtn.style.background = '#10b981';
+        setTimeout(() => {
+          copyText.textContent = 'Copy';
+          copyBtn.style.background = '';
+        }, 2000);
+      } catch (e) {
+        copyText.textContent = 'Failed';
+      }
+    });
+  </script>
+</body>
+</html>
