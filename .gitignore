@@ -17,6 +17,7 @@ yarn-error.log*
 projects/*.json
 projects/*.tmp
 !projects/.gitkeep
+.active_project.json
 
 # Environment & Secrets
 .env

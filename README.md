@@ -70,11 +70,18 @@ Built entirely with **Vanilla JavaScript (ES Modules)**, **HTML5 Canvas**, and *
 - **Play Store Feature Graphic Editor:** Dedicated 1024 × 500 banner canvas with multi-screen showcase arrangement.
 - **Intelligent Background Removal:** Pure client-side background eraser that automatically removes solid backgrounds from uploaded logos, app icons, and stickers with boundary flood fill, edge feathering, and real-time sensitivity controls.
 
-### 6. ⚡ Production-Ready Productivity Tools
+### 6. ⚡ Production-Ready Productivity Tools & Precision Controls
+- **Slider & Number Input Synchronization:** Every size, scale, and position slider in the inspector features an inline numeric input with real-time two-way synchronization for exact coordinate precision.
+- **Direct Canvas Mouse/Touch Manipulation:** Drag, position, rotate, and scale phone frames, text layers, badges, and images directly on the canvas with zero coordinate drift.
 - **Custom Context Menu:** Right-click anywhere on the canvas or elements to duplicate, delete, lock, hide, reorder layers, center, or reset rotation.
 - **All Screens Overview:** Full listing overview grid to review your entire Play Store presentation side-by-side.
 - **High-Resolution Export:** Instant export to Single PNG, Single JPEG, or a complete ZIP batch of all screens.
-- **100% Serverless & Offline:** Zero backend or database required. All projects and assets auto-save to browser `IndexedDB` with instant `localStorage` caching and `.json` import/export.
+- **100% Serverless & Offline:** Zero database required. All projects and assets auto-save to browser `IndexedDB` with instant `localStorage` caching and `.json` import/export.
+
+### 7. 🔗 Unified Web Studio ↔ AI MCP Server Bridge (As One!)
+- **Shared Engine & Real-Time Sync:** The Web Studio and the MCP Server share the exact same state machine, layer management, and context actions.
+- **Live Two-Way Synchronization:** Edits made in the browser automatically sync to `.active_project.json` and the MCP server. Conversely, AI agents calling MCP tools update the open browser canvas live via Server-Sent Events (`/api/events`).
+- **Zero-Config Tool Invocation:** AI agents can call MCP tools without needing explicit file paths — tools automatically target your live studio session by default!
 
 ---
 
@@ -82,13 +89,14 @@ Built entirely with **Vanilla JavaScript (ES Modules)**, **HTML5 Canvas**, and *
 
 ```
 appscreen-studio/
-├── index.html                  # Projects dashboard & template launcher
-├── editor.html                 # Main studio interface
+├── index.html                  # Projects dashboard & template launcher (with live SSE auto-refresh)
+├── editor.html                 # Main studio interface (real-time canvas & inspector)
+├── server.mjs                  # Unified Web Server + HTTP MCP Endpoint + SSE Live Sync Bridge
 ├── css/
 │   ├── style.css               # Core layout, themes, and Material Symbols styling
-│   └── components.css          # Modals, drawer tabs, context menus, and toolbars
+│   └── components.css          # Modals, drawer tabs, context menus, and inline slider inputs
 ├── js/
-│   ├── app.js                  # Application bootstrap and controller
+│   ├── app.js                  # Application bootstrap, controller, and live SSE sync listener
 │   ├── state/                  # Reactive state management, store, and layer hierarchy
 │   ├── canvas/                 # HTML5 2D canvas renderer, compose engine, and phone frames
 │   ├── features/
@@ -101,12 +109,13 @@ appscreen-studio/
 │   │   └── export/             # High-res canvas export and project JSON backup
 │   └── ui/                     # Left drawer dock, inspector, context menu, filmstrip, modals
 ├── mcp/                        # Model Context Protocol (MCP) Server for AI Agents
-│   ├── server.js               # Stdio JSON-RPC 2.0 server entrypoint
-│   ├── tools.js                # 19 programmatic tools (create, update, validate, fonts, palettes, etc.)
+│   ├── server.js               # Stdio JSON-RPC 2.0 CLI entrypoint (shares mcp/handler.js)
+│   ├── handler.js              # Shared JSON-RPC 2.0 request router for Stdio & HTTP
+│   ├── tools.js                # 24 programmatic tools (full 100% parity with web studio)
 │   ├── resources.js            # Schemas, templates, devices, and guidelines
 │   ├── prompts.js              # Guided AI prompt workflows
-│   └── svgRenderer.js          # Headless vector SVG rendering engine
-└── tests/                      # Automated unit test suite
+│   └── svgRenderer.js          # Headless vector SVG rendering engine (multi-device & feature graphic)
+└── tests/                      # Automated unit & integration test suite (8 test suites)
 ```
 
 - **Frontend:** Pure Vanilla JavaScript (ES6 Modules), HTML5 Canvas 2D API. No bundler or build step required!
@@ -152,29 +161,34 @@ Go to `https://laith261.github.io/appscreen-studio/`
 
 ## 🧪 Running Tests
 
-The test suite validates state persistence, multi-language copy isolation, context menu actions, and layer management:
+The test suite validates state persistence, multi-language copy isolation, context menu actions, dialogs, background removal, MCP tools, and canvas device alignment:
 
 ```bash
 npm test
 ```
 
-Or run directly with Node:
+Or run individual suites with Node:
 
 ```bash
 node tests/store.check.mjs
 node tests/persistence.check.mjs
 node tests/translation_manual.check.mjs
 node tests/context_menu.check.mjs
+node tests/dialog.check.mjs
+node tests/background_removal.check.mjs
 node tests/mcp_server.check.mjs
+node tests/device_boundary.check.mjs
 ```
 
 ---
 
 ## 🤖 Model Context Protocol (MCP) Server for AI Agents
 
-AppScreen Studio provides a built-in **MCP server** allowing any AI agent (Claude Desktop, Cursor, Antigravity, Windsurf, Roo Code, VS Code Copilot, Cline, etc.) to programmatically build, translate, validate, and render Play Store screenshots.
+AppScreen Studio provides a built-in **MCP server** allowing any AI agent (Claude Desktop, Cursor, Antigravity, Windsurf, Roo Code, VS Code Copilot, Cline, etc.) to programmatically build, translate, validate, and render Play Store screenshots with **100% full parity** with the web studio interface.
 
 ### 🔌 Connecting an AI Agent
+
+#### Stdio Mode (Claude Desktop, Cursor, Antigravity, Windsurf)
 Add to your Claude Desktop config (`claude_desktop_config.json`), Cursor (`.cursor/mcp.json`), or Antigravity / Windsurf settings:
 
 ```json
@@ -188,8 +202,18 @@ Add to your Claude Desktop config (`claude_desktop_config.json`), Cursor (`.curs
 }
 ```
 
+#### HTTP JSON-RPC Mode (Remote or Web-Based Agents)
+When running `npm start`, the server automatically exposes the MCP JSON-RPC 2.0 endpoint at:
+`http://localhost:8000/mcp` (or tools list at `http://localhost:8000/api/mcp/tools`).
+
 ### ⚡ Highlights:
-- **19 Programmatic Tools:** `create_project`, `add_screen`, `update_screen` (with screenshot attachment, custom fonts & device styling), `apply_palette`, `list_fonts`, `add_badge_to_screen`, `localize_project` (with native Arabic RTL & Cairo font), `generate_feature_graphic`, `validate_project`, and `render_screen_svg`.
+- **24 Programmatic Tools (100% Web Studio Parity):**
+  - **Project & File Lifecycle:** `create_project`, `inspect_project`, `save_project_file`, `load_project_file`.
+  - **Screen Operations:** `add_screen`, `update_screen` (full inspector controls, typography, and positioning), `remove_screen`.
+  - **Design & Layouts:** `list_templates`, `get_template`, `list_devices`, `list_palettes`, `apply_palette`, `list_fonts`, `list_badges`, `add_badge_to_screen`.
+  - **Advanced Layer & Showcase Controls:** `manage_layers` (add phone frames, duplicate, delete, z-order, hide, lock, center, reset rotation), `manage_showcase` (toggle/customize feature graphic 3-card showcase), `add_text_layer`, `add_image_layer`, `update_element`.
+  - **Localization & Compliance:** `localize_project` (with native Arabic RTL & Cairo font), `generate_feature_graphic`, `validate_project`, and headless `render_screen_svg`.
+- **Live Two-Way Studio Sync:** Tools automatically target your open web studio project without requiring explicit file paths, and changes reflect on your browser canvas in real time.
 - **7 MCP Resources:** Templates, devices, palettes, fonts, badges, schema, and Google Play Store quality guidelines (`appscreen://...`).
 - **3 Guided Prompts:** High-converting listing generator, market localization, and feature graphic creator.
 - **Zero External Dependencies:** Built with pure Node.js stdio JSON-RPC 2.0.

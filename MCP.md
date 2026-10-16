@@ -52,7 +52,21 @@ Configure an stdio MCP server with:
 
 ---
 
-## 🛠️ Complete Tool Reference (19 Tools)
+### 4. HTTP JSON-RPC Mode (Remote or Web-Based Agents)
+When running `npm start`, the server automatically exposes the MCP JSON-RPC 2.0 endpoint at:
+`http://localhost:8000/mcp` (with tools list at `http://localhost:8000/api/mcp/tools`).
+
+---
+
+## ⚡ Live Studio Synchronization (As One!)
+The Web Studio and the MCP Server share the exact same state engine:
+- **No File Path Required:** Tools default to your open live studio session (`.active_project.json`) when `file_path` is omitted.
+- **Real-Time Canvas Updates:** When an AI agent executes tools, updates are broadcasted immediately to your open browser canvas via Server-Sent Events (`/api/events`).
+- **Two-Way Synchronization:** Edits you make on the web canvas are automatically synced so MCP tools can inspect and build on them instantly.
+
+---
+
+## 🛠️ Complete Tool Reference (24 Tools)
 
 ### Project Creation & Management
 
@@ -197,6 +211,59 @@ Renders a vector SVG string of any screen or feature graphic for instant visual 
   - `screen_index_or_id` *(string, optional)*: Screen ID/index, or `"feature"` for feature graphic.
   - `language_code` *(string, optional)*: Language copy to render (e.g. `"ar"` for RTL).
   - `output_svg_path` *(string, optional)*: File path to save the generated `.svg`.
+
+---
+
+### Layer Manipulation & Multi-Device Composition
+
+#### 20. `manage_layers`
+Executes layer operations on any screen or the feature graphic (`"feature"`), matching context menu and inspector actions.
+- **Arguments:**
+  - `screen_index_or_id` *(string, optional)*: Target screen ID, index, or `"feature"`.
+  - `action` *(string, required)*: `'add_device'`, `'duplicate'`, `'duplicate_screen'`, `'delete'`, `'forward'`, `'backward'`, `'front'`, `'back'`, `'toggle_hide'`, `'toggle_lock'`, `'center'`, `'reset_rotation'`, or `'remove_screenshot'`.
+  - `layer_id` *(string, optional)*: Target layer ID (e.g., `'device'`, `'device-2'`, `'headline'`, `'subtitle'`, `'showcase'`, shape/image ID).
+  - `axis` *(string, optional)*: Centering axis (`'x'`, `'y'`, or `'both'`).
+
+#### 21. `manage_showcase`
+Adds, removes, or fine-tunes the 3-card screens showcase arrangement on the 1024×500 Feature Graphic.
+- **Arguments:**
+  - `action` *(string, required)*: `'add'`, `'remove'`, or `'update'`.
+  - `x` / `y` *(number, optional)*: Position coordinates.
+  - `scale` *(number, optional)*: Showcase scale multiplier.
+  - `rotation` *(number, optional)*: Rotation angle in degrees.
+  - `only_device` *(boolean, optional)*: Render only the phone frames without screen backgrounds/texts.
+  - `remove_background` *(boolean, optional)*: Make the mini-cards background transparent.
+
+#### 22. `add_text_layer`
+Adds an independent, freeform text layer anywhere on the canvas or feature graphic.
+- **Arguments:**
+  - `screen_index_or_id` *(string, optional)*: Target screen ID or `"feature"`.
+  - `text` *(string, required)*: Text string.
+  - `font_family` *(string, optional)*: Font family (e.g., `"Plus Jakarta Sans"`).
+  - `font_size` *(number, optional)*: Font size in px.
+  - `font_weight` *(string, optional)*: Weight (e.g., `"700"`).
+  - `color` *(string, optional)*: Hex color code.
+  - `x` / `y` *(number, optional)*: Position coordinates.
+  - `rotation` *(number, optional)*: Rotation in degrees.
+
+#### 23. `add_image_layer`
+Embeds a floating image or app logo layer from a local file path or base64 data URL.
+- **Arguments:**
+  - `screen_index_or_id` *(string, optional)*: Target screen ID or `"feature"`.
+  - `image_path` *(string, required)*: Path to PNG/JPG/WebP/SVG or data URL.
+  - `x` / `y` *(number, optional)*: Position coordinates.
+  - `width` / `height` *(number, optional)*: Dimensions in px.
+  - `scale` / `rotation` *(number, optional)*: Transform adjustments.
+  - `border_radius` *(number, optional)*: Rounded corner radius in px.
+
+#### 24. `update_element`
+Inspects and modifies any specific element by ID (e.g. secondary phone frames in multi-device layouts, badges, text shapes, image layers, headline, subtitle, showcase) with granular precision.
+- **Arguments:**
+  - `screen_index_or_id` *(string, optional)*: Target screen ID or `"feature"`.
+  - `layer_id` *(string, required)*: ID of the layer to modify.
+  - `x`, `y`, `width`, `height`, `scale`, `rotation`, `opacity` *(numbers, optional)*.
+  - `text`, `sublabel`, `font_family`, `font_size`, `color`, `fill_color` *(optional)*.
+  - `device_type`, `screenshot_path`, `remove_screenshot` *(optional)*.
 
 ---
 

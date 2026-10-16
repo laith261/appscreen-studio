@@ -13,6 +13,38 @@ import { showcaseOrder, renderScreenShot } from '../canvas/compose.js';
 import { setBackgroundImage, readImageFile } from '../canvas/imageUploader.js';
 import { removeBackgroundFromDataUrl } from '../canvas/backgroundRemoval.js';
 import { getLayerItem, ensureScreenDevices } from '../state/layers.js';
+import { deleteElement } from './contextMenu.js';
+
+/**
+ * Binds a range slider with a number input for synchronized real-time value changes.
+ * @param {HTMLInputElement} slider
+ * @param {HTMLInputElement} numInput
+ * @param {Function} onChange Callback with numeric value
+ * @param {Object} [options]
+ * @param {number} [options.multiplier=1] (e.g. 100 if slider is 0..1 and numInput is 0..100%)
+ * @param {number} [options.decimals=0]
+ */
+export function bindSliderWithNumber(slider, numInput, onChange, { multiplier = 1, decimals = 0 } = {}) {
+  if (!slider || !numInput) return;
+
+  const updateFromSlider = () => {
+    const rawVal = parseFloat(slider.value);
+    const displayVal = multiplier === 1 ? rawVal : Number((rawVal * multiplier).toFixed(decimals));
+    numInput.value = displayVal;
+    onChange(rawVal);
+  };
+
+  const updateFromNumber = () => {
+    let numVal = parseFloat(numInput.value);
+    if (isNaN(numVal)) return;
+    const modelVal = multiplier === 1 ? numVal : Number((numVal / multiplier).toFixed(decimals + 2));
+    slider.value = modelVal;
+    onChange(modelVal);
+  };
+
+  slider.oninput = updateFromSlider;
+  numInput.oninput = updateFromNumber;
+}
 
 export class Inspector {
   /**
@@ -109,19 +141,31 @@ export class Inspector {
 
         <!-- Size Presets -->
         <div class="form-group mb-4">
-          <label class="form-label">Size (${Math.round((shape.scale || 1) * 100)}%)</label>
+          <label class="form-label">Size</label>
           <div class="size-preset-row mb-2">
             ${[['0.75', 'Small'], ['1.0', 'Medium'], ['1.3', 'Large']].map(([v, name]) =>
               `<button class="size-pill ${Math.abs((shape.scale || 1) - v) < 0.001 ? 'active' : ''}" data-scale="${v}">${name}</button>`).join('')}
           </div>
-          <input type="range" class="form-range" id="clean-shape-scale" min="0.4" max="1.8" step="0.05" value="${shape.scale || 1}" />
+          <div class="slider-number-row">
+            <input type="range" class="form-range" id="clean-shape-scale" min="0.4" max="1.8" step="0.05" value="${shape.scale || 1}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" id="clean-shape-scale-num" min="20" max="300" step="1" value="${Math.round((shape.scale || 1) * 100)}" />
+              <span class="slider-num-unit">%</span>
+            </div>
+          </div>
         </div>
 
         <!-- Rounded Corner Slider (if applicable) -->
         ${shape.borderRadius !== undefined ? `
           <div class="form-group mb-3">
-            <label class="form-label">Corner Roundness (${shape.borderRadius}px)</label>
-            <input type="range" class="form-range" id="clean-shape-radius" min="0" max="60" step="2" value="${shape.borderRadius}" />
+            <label class="form-label">Corner Roundness</label>
+            <div class="slider-number-row">
+              <input type="range" class="form-range" id="clean-shape-radius" min="0" max="60" step="2" value="${shape.borderRadius}" />
+              <div class="slider-num-wrap has-unit">
+                <input type="number" class="slider-num-input" id="clean-shape-radius-num" min="0" max="100" step="1" value="${shape.borderRadius}" />
+                <span class="slider-num-unit">px</span>
+              </div>
+            </div>
           </div>
         ` : ''}
 
@@ -158,15 +202,26 @@ export class Inspector {
       btn.onclick = () => {
         container.querySelectorAll('.size-pill').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        updateShape(s => s.scale = parseFloat(btn.dataset.scale));
+        const scaleVal = parseFloat(btn.dataset.scale);
+        const scaleRange = container.querySelector('#clean-shape-scale');
+        const scaleNum = container.querySelector('#clean-shape-scale-num');
+        if (scaleRange) scaleRange.value = scaleVal;
+        if (scaleNum) scaleNum.value = Math.round(scaleVal * 100);
+        updateShape(s => s.scale = scaleVal);
       };
     });
 
     const scaleRange = container.querySelector('#clean-shape-scale');
-    if (scaleRange) scaleRange.oninput = (e) => updateShape(s => s.scale = parseFloat(e.target.value));
+    const scaleNum = container.querySelector('#clean-shape-scale-num');
+    if (scaleRange && scaleNum) {
+      bindSliderWithNumber(scaleRange, scaleNum, (val) => updateShape(s => s.scale = val), { multiplier: 100 });
+    }
 
     const radiusRange = container.querySelector('#clean-shape-radius');
-    if (radiusRange) radiusRange.oninput = (e) => updateShape(s => s.borderRadius = parseFloat(e.target.value));
+    const radiusNum = container.querySelector('#clean-shape-radius-num');
+    if (radiusRange && radiusNum) {
+      bindSliderWithNumber(radiusRange, radiusNum, (val) => updateShape(s => s.borderRadius = val));
+    }
 
     const shadowCheck = container.querySelector('#clean-shape-shadow');
     if (shadowCheck) shadowCheck.onchange = (e) => updateShape(s => s.shadow = e.target.checked);
@@ -241,7 +296,13 @@ export class Inspector {
               <button class="size-pill py-1 text-[10px] ${Math.abs((textTarget.fontSize || 48) - v) < 4 ? 'active' : ''}" data-insp-size="${v}">${name}</button>
             `).join('')}
           </div>
-          <input type="range" class="form-range" id="clean-text-size" min="16" max="130" step="2" value="${textTarget.fontSize || 48}" />
+          <div class="slider-number-row">
+            <input type="range" class="form-range" id="clean-text-size" min="16" max="130" step="2" value="${textTarget.fontSize || 48}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" id="clean-text-size-num" min="12" max="200" step="1" value="${textTarget.fontSize || 48}" />
+              <span class="slider-num-unit">px</span>
+            </div>
+          </div>
         </div>
 
         <!-- Font Weight -->
@@ -284,7 +345,13 @@ export class Inspector {
               <button class="btn btn-outline btn-xs py-0.5 px-1.5 text-[10px]" id="clean-text-reset-rot" title="Reset angle to 0°">↺ 0°</button>
             </div>
           </div>
-          <input type="range" class="form-range" id="clean-text-rotation" min="-180" max="180" step="1" value="${textTarget.rotation || 0}" />
+          <div class="slider-number-row">
+            <input type="range" class="form-range" id="clean-text-rotation" min="-180" max="180" step="1" value="${textTarget.rotation || 0}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" id="clean-text-rotation-num" min="-180" max="180" step="1" value="${textTarget.rotation || 0}" />
+              <span class="slider-num-unit">°</span>
+            </div>
+          </div>
         </div>
 
         <!-- Drop Shadow Toggle -->
@@ -356,19 +423,20 @@ export class Inspector {
 
     // Font size
     const sizeInput = container.querySelector('#clean-text-size');
+    const sizeNum = container.querySelector('#clean-text-size-num');
     const sizeLabel = container.querySelector('#clean-font-size-label');
-    if (sizeInput) {
-      sizeInput.oninput = (e) => {
-        const val = parseFloat(e.target.value);
+    if (sizeInput && sizeNum) {
+      bindSliderWithNumber(sizeInput, sizeNum, (val) => {
         if (sizeLabel) sizeLabel.textContent = `${val}px`;
         updateText(t => t.fontSize = val);
-      };
+      });
     }
 
     container.querySelectorAll('[data-insp-size]').forEach(btn => {
       btn.onclick = () => {
         const val = parseFloat(btn.dataset.inspSize);
         if (sizeInput) sizeInput.value = val;
+        if (sizeNum) sizeNum.value = val;
         if (sizeLabel) sizeLabel.textContent = `${val}px`;
         updateText(t => t.fontSize = val);
         container.querySelectorAll('[data-insp-size]').forEach(b => b.classList.remove('active'));
@@ -409,17 +477,18 @@ export class Inspector {
 
     // Rotation slider
     const rotInput = container.querySelector('#clean-text-rotation');
+    const rotNum = container.querySelector('#clean-text-rotation-num');
     const rotLabel = container.querySelector('#clean-text-rot-label');
-    if (rotInput) {
-      rotInput.oninput = (e) => {
-        const val = parseFloat(e.target.value);
+    if (rotInput && rotNum) {
+      bindSliderWithNumber(rotInput, rotNum, (val) => {
         if (rotLabel) rotLabel.textContent = `${val}°`;
         updateText(t => t.rotation = val);
-      };
+      });
     }
 
     container.querySelector('#clean-text-reset-rot')?.addEventListener('click', () => {
       if (rotInput) rotInput.value = 0;
+      if (rotNum) rotNum.value = 0;
       if (rotLabel) rotLabel.textContent = '0°';
       updateText(t => t.rotation = 0);
     });
@@ -485,6 +554,10 @@ export class Inspector {
   renderDeviceSection(container, screen, devItem = null) {
     const dev = devItem || screen.device || {};
     const devId = dev.id || 'device';
+    const isFeature = screen.id === FEATURE_ID;
+    const defaultDevScale = isFeature ? 0.28 : 0.92;
+    const defaultDevY = isFeature ? 250 : 1180;
+    const defaultDevX = isFeature ? 512 : 540;
 
     const styles = [
       { type: 'modern_phone', icon: 'smartphone', name: 'Modern' },
@@ -571,13 +644,25 @@ export class Inspector {
           </div>
 
           <div class="form-group mb-3">
-            <label class="form-label">Screenshot Zoom (${Math.round((dev.imageScale || 1) * 100)}%)</label>
-            <input type="range" class="form-range" id="clean-image-scale" min="0.5" max="1.5" step="0.02" value="${dev.imageScale || 1}" />
+            <label class="form-label">Screenshot Zoom</label>
+            <div class="slider-number-row">
+              <input type="range" class="form-range" id="clean-image-scale" min="0.5" max="1.5" step="0.02" value="${dev.imageScale || 1}" />
+              <div class="slider-num-wrap has-unit">
+                <input type="number" class="slider-num-input" id="clean-image-scale-num" min="50" max="150" step="1" value="${Math.round((dev.imageScale || 1) * 100)}" />
+                <span class="slider-num-unit">%</span>
+              </div>
+            </div>
           </div>
 
           <div class="form-group mb-3">
             <label class="form-label">Screenshot Vertical Offset</label>
-            <input type="range" class="form-range" id="clean-image-offset-y" min="-250" max="250" step="5" value="${dev.imageOffsetY || 0}" />
+            <div class="slider-number-row">
+              <input type="range" class="form-range" id="clean-image-offset-y" min="-250" max="250" step="5" value="${dev.imageOffsetY || 0}" />
+              <div class="slider-num-wrap has-unit">
+                <input type="number" class="slider-num-input" id="clean-image-offset-y-num" min="-300" max="300" step="1" value="${Math.round(dev.imageOffsetY || 0)}" />
+                <span class="slider-num-unit">px</span>
+              </div>
+            </div>
           </div>
         ` : `
           <button class="btn btn-primary w-full py-2.5 mb-3 flex items-center justify-center gap-1.5" id="clean-device-upload-btn">
@@ -587,23 +672,58 @@ export class Inspector {
 
         <!-- Phone Scale & Position -->
         <div class="form-group mb-3">
-          <label class="form-label">Phone Size (${Math.round((dev.scale || 0.92) * 100)}%)</label>
-          <input type="range" class="form-range" id="clean-device-scale" min="0.5" max="1.3" step="0.02" value="${dev.scale || 0.92}" />
+          <label class="form-label">Phone Size</label>
+          <div class="slider-number-row">
+            <input type="range" class="form-range" id="clean-device-scale" min="${isFeature ? '0.1' : '0.4'}" max="${isFeature ? '0.8' : '1.4'}" step="${isFeature ? '0.01' : '0.02'}" value="${dev.scale || defaultDevScale}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" id="clean-device-scale-num" min="${isFeature ? '10' : '40'}" max="${isFeature ? '80' : '140'}" step="1" value="${Math.round((dev.scale || defaultDevScale) * 100)}" />
+              <span class="slider-num-unit">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group mb-3">
+          <label class="form-label">Phone Horizontal Position</label>
+          <div class="slider-number-row">
+            <input type="range" class="form-range" id="clean-device-x" min="${isFeature ? '50' : '100'}" max="${isFeature ? '974' : '980'}" step="${isFeature ? '5' : '10'}" value="${dev.x ?? defaultDevX}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" id="clean-device-x-num" min="${isFeature ? '0' : '0'}" max="${isFeature ? '1024' : '1080'}" step="1" value="${Math.round(dev.x ?? defaultDevX)}" />
+              <span class="slider-num-unit">px</span>
+            </div>
+          </div>
         </div>
 
         <div class="form-group mb-3">
           <label class="form-label">Phone Vertical Position</label>
-          <input type="range" class="form-range" id="clean-device-y" min="700" max="1500" step="10" value="${dev.y || 1180}" />
+          <div class="slider-number-row">
+            <input type="range" class="form-range" id="clean-device-y" min="${isFeature ? '50' : '500'}" max="${isFeature ? '450' : '1700'}" step="${isFeature ? '5' : '10'}" value="${dev.y ?? defaultDevY}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" id="clean-device-y-num" min="${isFeature ? '0' : '0'}" max="${isFeature ? '500' : '2000'}" step="1" value="${Math.round(dev.y ?? defaultDevY)}" />
+              <span class="slider-num-unit">px</span>
+            </div>
+          </div>
         </div>
 
         <div class="form-group mb-3">
-          <label class="form-label">Phone Rotation (${dev.rotation || 0}°)</label>
-          <input type="range" class="form-range" id="clean-device-rotation" min="-45" max="45" step="1" value="${dev.rotation || 0}" />
+          <label class="form-label">Phone Rotation</label>
+          <div class="slider-number-row">
+            <input type="range" class="form-range" id="clean-device-rotation" min="-45" max="45" step="1" value="${dev.rotation || 0}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" id="clean-device-rotation-num" min="-180" max="180" step="1" value="${dev.rotation || 0}" />
+              <span class="slider-num-unit">°</span>
+            </div>
+          </div>
         </div>
 
         <div class="form-group mb-3">
           <label class="form-label">Drop Shadow Intensity</label>
-          <input type="range" class="form-range" id="clean-device-shadow" min="0" max="80" step="5" value="${dev.shadowBlur || 45}" />
+          <div class="slider-number-row">
+            <input type="range" class="form-range" id="clean-device-shadow" min="0" max="80" step="5" value="${dev.shadowBlur || 45}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" id="clean-device-shadow-num" min="0" max="100" step="1" value="${dev.shadowBlur || 45}" />
+              <span class="slider-num-unit">px</span>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -651,7 +771,10 @@ export class Inspector {
     if (customColorInput) customColorInput.oninput = (e) => updateDev(d => d.color = e.target.value);
 
     const rotSlider = container.querySelector('#clean-device-rotation');
-    if (rotSlider) rotSlider.oninput = (e) => updateDev(d => d.rotation = parseInt(e.target.value, 10));
+    const rotNum = container.querySelector('#clean-device-rotation-num');
+    if (rotSlider && rotNum) {
+      bindSliderWithNumber(rotSlider, rotNum, (val) => updateDev(d => d.rotation = parseInt(val, 10)));
+    }
 
     const applyAllBtn = container.querySelector('#insp-frame-apply-all');
     if (applyAllBtn) {
@@ -681,14 +804,40 @@ export class Inspector {
     });
 
     const imgScaleInput = container.querySelector('#clean-image-scale');
-    if (imgScaleInput) imgScaleInput.oninput = (e) => updateDev(d => d.imageScale = parseFloat(e.target.value));
+    const imgScaleNum = container.querySelector('#clean-image-scale-num');
+    if (imgScaleInput && imgScaleNum) {
+      bindSliderWithNumber(imgScaleInput, imgScaleNum, (val) => updateDev(d => d.imageScale = val), { multiplier: 100 });
+    }
 
     const imgOffsetInput = container.querySelector('#clean-image-offset-y');
-    if (imgOffsetInput) imgOffsetInput.oninput = (e) => updateDev(d => d.imageOffsetY = parseFloat(e.target.value));
+    const imgOffsetNum = container.querySelector('#clean-image-offset-y-num');
+    if (imgOffsetInput && imgOffsetNum) {
+      bindSliderWithNumber(imgOffsetInput, imgOffsetNum, (val) => updateDev(d => d.imageOffsetY = val));
+    }
 
-    container.querySelector('#clean-device-scale').oninput = (e) => updateDev(d => d.scale = parseFloat(e.target.value));
-    container.querySelector('#clean-device-y').oninput = (e) => updateDev(d => d.y = parseFloat(e.target.value));
-    container.querySelector('#clean-device-shadow').oninput = (e) => updateDev(d => d.shadowBlur = parseFloat(e.target.value));
+    const devScaleSlider = container.querySelector('#clean-device-scale');
+    const devScaleNum = container.querySelector('#clean-device-scale-num');
+    if (devScaleSlider && devScaleNum) {
+      bindSliderWithNumber(devScaleSlider, devScaleNum, (val) => updateDev(d => d.scale = val), { multiplier: 100 });
+    }
+
+    const xSlider = container.querySelector('#clean-device-x');
+    const xNum = container.querySelector('#clean-device-x-num');
+    if (xSlider && xNum) {
+      bindSliderWithNumber(xSlider, xNum, (val) => updateDev(d => d.x = val));
+    }
+
+    const ySlider = container.querySelector('#clean-device-y');
+    const yNum = container.querySelector('#clean-device-y-num');
+    if (ySlider && yNum) {
+      bindSliderWithNumber(ySlider, yNum, (val) => updateDev(d => d.y = val));
+    }
+
+    const shadowSlider = container.querySelector('#clean-device-shadow');
+    const shadowNum = container.querySelector('#clean-device-shadow-num');
+    if (shadowSlider && shadowNum) {
+      bindSliderWithNumber(shadowSlider, shadowNum, (val) => updateDev(d => d.shadowBlur = val));
+    }
 
     container.querySelector('#clean-duplicate-device')?.addEventListener('click', () => {
       this.store.update(state => {
@@ -701,8 +850,8 @@ export class Inspector {
         const newDev = {
           ...JSON.parse(JSON.stringify(srcDev)),
           id: newId,
-          x: Math.round((srcDev.x || 540) + 70),
-          y: Math.round((srcDev.y || 1180) + 40),
+          x: Math.round((srcDev.x || defaultDevX) + (isFeature ? 40 : 70)),
+          y: Math.round((srcDev.y || defaultDevY) + (isFeature ? 20 : 40)),
           hidden: false,
           isDevice: true
         };
@@ -714,33 +863,7 @@ export class Inspector {
     });
 
     container.querySelector('#clean-delete-device')?.addEventListener('click', () => {
-      this.store.update(state => {
-        const sc = activeDoc(state);
-        if (!sc) return;
-        ensureScreenDevices(sc);
-        if (devId === 'device' && (!sc.devices || sc.devices.length <= 1)) {
-          if (sc.device) {
-            sc.device.hidden = true;
-            sc.device.deleted = true;
-          }
-        } else {
-          if (sc.devices) {
-            sc.devices = sc.devices.filter(d => d.id !== devId);
-            if (sc.device?.id === devId) {
-              sc.device = sc.devices[0] || null;
-            }
-          } else if (sc.device) {
-            sc.device.hidden = true;
-            sc.device.deleted = true;
-          }
-        }
-        if (sc.layerOrder) {
-          sc.layerOrder = sc.layerOrder.filter(id => id !== devId);
-        }
-        if (state.activeElementId === devId) {
-          state.activeElementId = null;
-        }
-      });
+      deleteElement(this.store, devId);
     });
   }
 
@@ -772,20 +895,44 @@ export class Inspector {
         </ul>
 
         <div class="form-group mb-3">
-          <label class="form-label">Size (${item.autoFit === false ? `${height}px tall` : 'auto-fit'})</label>
-          <input type="range" class="form-range" data-prop="height" min="120" max="500" step="5" value="${height}" />
+          <label class="form-label">Size (${item.autoFit === false ? 'Custom' : 'auto-fit'})</label>
+          <div class="slider-number-row">
+            <input type="range" class="form-range" data-prop="height" min="120" max="500" step="5" value="${height}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" data-prop-num="height" min="100" max="600" step="1" value="${height}" />
+              <span class="slider-num-unit">px</span>
+            </div>
+          </div>
         </div>
         <div class="form-group mb-3">
-          <label class="form-label">Spacing (${gap}px)</label>
-          <input type="range" class="form-range" data-prop="gap" min="0" max="80" step="2" value="${gap}" />
+          <label class="form-label">Spacing</label>
+          <div class="slider-number-row">
+            <input type="range" class="form-range" data-prop="gap" min="0" max="80" step="2" value="${gap}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" data-prop-num="gap" min="0" max="150" step="1" value="${gap}" />
+              <span class="slider-num-unit">px</span>
+            </div>
+          </div>
         </div>
         <div class="form-group mb-3">
-          <label class="form-label">Corner radius (${radius}px${radius === 0 ? ', square' : ''})</label>
-          <input type="range" class="form-range" data-prop="radius" min="0" max="80" step="2" value="${radius}" />
+          <label class="form-label">Corner radius</label>
+          <div class="slider-number-row">
+            <input type="range" class="form-range" data-prop="radius" min="0" max="80" step="2" value="${radius}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" data-prop-num="radius" min="0" max="100" step="1" value="${radius}" />
+              <span class="slider-num-unit">px</span>
+            </div>
+          </div>
         </div>
         <div class="form-group mb-3">
-          <label class="form-label">Tilt (${tilt}°)</label>
-          <input type="range" class="form-range" data-prop="rotation" min="-30" max="30" step="1" value="${tilt}" />
+          <label class="form-label">Tilt</label>
+          <div class="slider-number-row">
+            <input type="range" class="form-range" data-prop="rotation" min="-30" max="30" step="1" value="${tilt}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" data-prop-num="rotation" min="-45" max="45" step="1" value="${tilt}" />
+              <span class="slider-num-unit">°</span>
+            </div>
+          </div>
         </div>
         <!-- Screen Background Options (Card vs Transparent / Remove Background) -->
         <div class="form-group mb-3 pt-2.5 border-t border-slate-700/60">
@@ -812,6 +959,12 @@ export class Inspector {
         <label class="flex items-center gap-2 text-sm">
           <input type="checkbox" id="showcase-shadow" ${item.shadow ?? true ? 'checked' : ''} /> Drop shadow
         </label>
+
+        <div class="pt-3 mt-3 border-t border-slate-700/60">
+          <button type="button" class="btn btn-danger btn-sm w-full flex items-center justify-center gap-1.5 font-semibold" id="showcase-delete-btn">
+            <span class="material-symbols-outlined" style="font-size:16px;">delete</span> Remove Showcase from Banner
+          </button>
+        </div>
       </div>
     `;
 
@@ -833,12 +986,26 @@ export class Inspector {
     });
 
     container.querySelectorAll('[data-prop]').forEach(input => {
-      input.oninput = () => update(sc => {
-        sc[input.dataset.prop] = Number(input.value);
-        if (input.dataset.prop === 'height') sc.autoFit = false; // the user's size wins over auto-fit
-      });
+      const prop = input.dataset.prop;
+      const numInput = container.querySelector(`[data-prop-num="${prop}"]`);
+      if (numInput) {
+        bindSliderWithNumber(input, numInput, (val) => {
+          update(sc => {
+            sc[prop] = Number(val);
+            if (prop === 'height') sc.autoFit = false;
+          });
+        });
+      } else {
+        input.oninput = () => update(sc => {
+          sc[prop] = Number(input.value);
+          if (prop === 'height') sc.autoFit = false;
+        });
+      }
     });
     container.querySelector('#showcase-shadow').onchange = (e) => update(sc => { sc.shadow = e.target.checked; });
+    container.querySelector('#showcase-delete-btn')?.addEventListener('click', () => {
+      deleteElement(this.store, 'showcase');
+    });
 
     container.querySelectorAll('.fg-row').forEach((row, i) => {
       const id = row.dataset.id;
@@ -886,20 +1053,44 @@ export class Inspector {
         <h4 class="insp-heading mb-1">Image</h4>
         <p class="text-xs text-slate-400 mb-3">Drag it on the canvas to move it.</p>
         <div class="form-group mb-3">
-          <label class="form-label">Size (${Math.round(scale * 100)}%)</label>
-          <input type="range" class="form-range" data-prop="scale" min="0.1" max="3" step="0.05" value="${scale}" />
+          <label class="form-label">Size</label>
+          <div class="slider-number-row">
+            <input type="range" class="form-range" data-prop="scale" min="0.1" max="3" step="0.05" value="${scale}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" data-prop-num="scale" min="10" max="300" step="1" value="${Math.round(scale * 100)}" />
+              <span class="slider-num-unit">%</span>
+            </div>
+          </div>
         </div>
         <div class="form-group mb-3">
-          <label class="form-label">Corner radius (${radius}px${radius === 0 ? ', square' : ''})</label>
-          <input type="range" class="form-range" data-prop="radius" min="0" max="300" step="2" value="${radius}" />
+          <label class="form-label">Corner radius</label>
+          <div class="slider-number-row">
+            <input type="range" class="form-range" data-prop="radius" min="0" max="300" step="2" value="${radius}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" data-prop-num="radius" min="0" max="300" step="1" value="${radius}" />
+              <span class="slider-num-unit">px</span>
+            </div>
+          </div>
         </div>
         <div class="form-group mb-3">
-          <label class="form-label">Opacity (${Math.round(opacity * 100)}%)</label>
-          <input type="range" class="form-range" data-prop="opacity" min="0.1" max="1" step="0.05" value="${opacity}" />
+          <label class="form-label">Opacity</label>
+          <div class="slider-number-row">
+            <input type="range" class="form-range" data-prop="opacity" min="0.1" max="1" step="0.05" value="${opacity}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" data-prop-num="opacity" min="10" max="100" step="1" value="${Math.round(opacity * 100)}" />
+              <span class="slider-num-unit">%</span>
+            </div>
+          </div>
         </div>
         <div class="form-group mb-3">
-          <label class="form-label">Rotation (${rotation}°)</label>
-          <input type="range" class="form-range" data-prop="rotation" min="-180" max="180" step="1" value="${rotation}" />
+          <label class="form-label">Rotation</label>
+          <div class="slider-number-row">
+            <input type="range" class="form-range" data-prop="rotation" min="-180" max="180" step="1" value="${rotation}" />
+            <div class="slider-num-wrap has-unit">
+              <input type="number" class="slider-num-input" data-prop-num="rotation" min="-180" max="180" step="1" value="${rotation}" />
+              <span class="slider-num-unit">°</span>
+            </div>
+          </div>
         </div>
         <label class="flex items-center gap-2 text-sm mb-3">
           <input type="checkbox" id="image-shadow" ${item.shadow ? 'checked' : ''} /> Drop shadow
@@ -948,7 +1139,16 @@ export class Inspector {
       if (it) fn(it);
     });
     container.querySelectorAll('[data-prop]').forEach(input => {
-      input.oninput = () => update(it => { it[input.dataset.prop] = Number(input.value); });
+      const prop = input.dataset.prop;
+      const numInput = container.querySelector(`[data-prop-num="${prop}"]`);
+      const isPercent = prop === 'scale' || prop === 'opacity';
+      if (numInput) {
+        bindSliderWithNumber(input, numInput, (val) => {
+          update(it => { it[prop] = Number(val); });
+        }, { multiplier: isPercent ? 100 : 1 });
+      } else {
+        input.oninput = () => update(it => { it[prop] = Number(input.value); });
+      }
     });
     container.querySelector('#image-shadow').onchange = (e) => update(it => { it.shadow = e.target.checked; });
 

@@ -149,15 +149,131 @@ assert(project.languages.includes('ar'));
 assert(project.localeScreens.ar[0].headline.text.includes('تتبع'));
 assert.equal(project.localeScreens.ar[0].headline.fontFamily, 'Cairo');
 
-// Test: generate_feature_graphic
+// Test: generate_feature_graphic (with showcase, device, and badge)
 const featRes = await executeTool('generate_feature_graphic', {
   project_data: project,
   headline_text: 'The Modern SaaS Powerhouse',
-  subtitle_text: 'Over 1M+ teams crushing goals daily'
+  subtitle_text: 'Over 1M+ teams crushing goals daily',
+  include_showcase: true,
+  only_device: false,
+  remove_background: false,
+  include_device: true,
+  device_scale: 0.28,
+  device_x: 720,
+  device_y: 250,
+  badge_label: '★ Editor Choice'
 });
 assert(!featRes.isError, 'generate_feature_graphic failed');
 assert(project.feature);
 assert.equal(project.feature.headline.text, 'The Modern SaaS Powerhouse');
+assert(project.feature.showcase, 'Feature graphic should have showcase when include_showcase is true');
+assert.equal(project.feature.devices.length, 1, 'Feature graphic should have 1 device when include_device is true');
+assert.equal(project.feature.device.scale, 0.28, 'Feature graphic device scale should be 0.28');
+assert.equal(project.feature.device.y, 250, 'Feature graphic device Y should be 250');
+assert.equal(project.feature.shapes.length, 1, 'Feature graphic should have 1 badge when badge_label is provided');
+
+// Test: update_screen with device_x, device_y and targeting "feature"
+const updatePosRes = await executeTool('update_screen', {
+  project_data: project,
+  screen_index_or_id: '0',
+  device_x: 560,
+  device_y: 1210,
+  device_scale: 0.88
+});
+assert(!updatePosRes.isError, 'update_screen with device_x/device_y failed');
+assert.equal(project.screens[0].device.x, 560);
+assert.equal(project.screens[0].device.y, 1210);
+assert.equal(project.screens[0].devices[0].x, 560);
+assert.equal(project.screens[0].devices[0].y, 1210);
+
+const updateFeatRes = await executeTool('update_screen', {
+  project_data: project,
+  screen_index_or_id: 'feature',
+  device_x: 680,
+  device_y: 245
+});
+assert(!updateFeatRes.isError, 'update_screen targeting "feature" failed');
+assert.equal(project.feature.device.x, 680);
+assert.equal(project.feature.device.y, 245);
+
+// Test: manage_layers, manage_showcase, and add_text_layer
+const addDevLayerRes = await executeTool('manage_layers', {
+  project_data: project,
+  screen_index_or_id: 'feature',
+  action: 'add_device'
+});
+assert(!addDevLayerRes.isError, 'manage_layers add_device failed');
+assert.equal(project.feature.devices.length, 2, 'Should now have 2 devices on feature graphic');
+
+const showcaseRemoveRes = await executeTool('manage_showcase', {
+  project_data: project,
+  action: 'remove'
+});
+assert(!showcaseRemoveRes.isError, 'manage_showcase remove failed');
+assert.equal(project.feature.showcase, null, 'Showcase should be removed');
+
+const showcaseAddRes = await executeTool('manage_showcase', {
+  project_data: project,
+  action: 'add',
+  x: 690,
+  y: 255,
+  only_device: true
+});
+assert(!showcaseAddRes.isError, 'manage_showcase add failed');
+assert(project.feature.showcase, 'Showcase should be re-added');
+assert.equal(project.feature.showcase.x, 690);
+assert.equal(project.feature.showcase.onlyDevice, true);
+
+const addTextRes = await executeTool('add_text_layer', {
+  project_data: project,
+  screen_index_or_id: '0',
+  text: 'Floating Custom Callout',
+  x: 540,
+  y: 500
+});
+assert(!addTextRes.isError, 'add_text_layer failed');
+const addedTextObj = JSON.parse(addTextRes.content[0].text).addedTextLayer;
+assert(project.screens[0].shapes.some(s => s.type === 'text' && s.text === 'Floating Custom Callout'));
+
+// Test: update_element on custom text layer and second device
+const updateElemRes = await executeTool('update_element', {
+  project_data: project,
+  screen_index_or_id: '0',
+  layer_id: addedTextObj.id,
+  x: 600,
+  y: 520,
+  font_size: 56,
+  color: '#38bdf8'
+});
+assert(!updateElemRes.isError, 'update_element failed');
+const updatedShape = project.screens[0].shapes.find(s => s.id === addedTextObj.id);
+assert.equal(updatedShape.x, 600);
+assert.equal(updatedShape.fontSize, 56);
+assert.equal(updatedShape.color, '#38bdf8');
+
+// Test: add_image_layer with data URL
+const addImgRes = await executeTool('add_image_layer', {
+  project_data: project,
+  screen_index_or_id: 'feature',
+  image_path: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  x: 180,
+  y: 120,
+  width: 120,
+  height: 120
+});
+assert(!addImgRes.isError, 'add_image_layer failed');
+assert(project.feature.shapes.some(s => s.type === 'image' && s.x === 180 && s.y === 120));
+
+// Test: Live Active Session Sync (calling tools without project_data or file_path)
+const liveUpdateRes = await executeTool('update_screen', {
+  screen_index_or_id: '0',
+  headline_text: 'Live Synced From MCP Without File Path'
+});
+assert(!liveUpdateRes.isError, 'Live session update_screen without project_data/file_path failed');
+const liveInspectRes = await executeTool('inspect_project', {});
+assert(!liveInspectRes.isError, 'Live session inspect_project without project_data/file_path failed');
+const liveInspect = JSON.parse(liveInspectRes.content[0].text);
+assert.equal(liveInspect.screens[0].headline, 'Live Synced From MCP Without File Path');
 
 // Test: validate_project
 const valRes = await executeTool('validate_project', { project_data: project });
@@ -170,12 +286,23 @@ const screenSvg = renderScreenToSvg(project.screens[0]);
 assert(screenSvg.startsWith('<?xml'), 'SVG must start with XML declaration');
 assert(screenSvg.includes('<svg'), 'SVG must contain <svg tag');
 assert(screenSvg.includes('Brand New Headline Test'), 'SVG must contain rendered headline');
+assert(screenSvg.includes('Floating Custom Callout'), 'SVG must contain custom text layer');
+assert(screenSvg.includes('translate(560, 1210)'), 'SVG must reflect updated device X/Y position');
 
-const featSvg = renderFeatureGraphicToSvg(project.feature);
+const featSvg = renderFeatureGraphicToSvg(project.feature, project.screens);
 assert(featSvg.includes('Powerhouse'), 'Feature SVG must contain headline text');
 assert(featSvg.includes('The Modern SaaS'), 'Feature SVG must contain headline text');
+assert(featSvg.includes('Editor Choice'), 'Feature SVG must contain badge label');
+assert(featSvg.includes('translate(680, 245)'), 'Feature SVG must render feature device at updated coordinates');
 
-console.log('  ✓ All 17 Tool executions & validations passed');
+// Test: Deleted device screen renders no ghost phone in SVG
+const noDeviceScreen = JSON.parse(JSON.stringify(project.screens[0]));
+noDeviceScreen.device = null;
+noDeviceScreen.devices = [];
+const noDeviceSvg = renderScreenToSvg(noDeviceScreen);
+assert(!noDeviceSvg.includes('filter="url(#dropShadow)"'), 'Screen with deleted device must not render a ghost device frame');
+
+console.log('  ✓ All Tool executions, Live Studio Sync, Feature Graphic options, X/Y sync & SVG validations passed');
 
 // 5. Full Stdio Subprocess JSON-RPC Protocol Test
 const serverPath = path.resolve('mcp/server.js');

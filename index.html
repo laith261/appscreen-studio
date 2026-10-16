@@ -692,6 +692,15 @@
     }
 
     load();
+
+    // Auto-refresh dashboard when MCP creates or updates projects in real time
+    if (typeof window.EventSource !== 'undefined') {
+      try {
+        const es = new EventSource('/api/events');
+        es.addEventListener('project_updated', () => load());
+        es.addEventListener('file_updated', () => load());
+      } catch (e) {}
+    }
   </script>
 </body>
 </html>

@@ -88,15 +88,17 @@ function createBackgroundFill(background = {}, gradientId = 'bgGrad') {
 /**
  * Generates SVG markup for a realistic device frame mockup.
  * @param {Object} device Device configuration
+ * @param {number} [idx=0] Device index for unique clipPath IDs
  * @returns {string} SVG group markup
  */
-function renderDeviceMockup(device = {}) {
+function renderDeviceMockup(device = {}, idx = 0) {
   try {
+    if (!device || device.hidden || device.deleted) return '';
     const type = device.type || 'modern_phone';
     const preset = DEVICE_PRESETS[type] || DEVICE_PRESETS.modern_phone;
-    const x = device.x !== undefined ? device.x : 540;
-    const y = device.y !== undefined ? device.y : 1180;
     const scale = device.scale !== undefined ? device.scale : 0.92;
+    const x = (device.x !== undefined && device.x !== null) ? device.x : (scale < 0.5 ? 512 : 540);
+    const y = (device.y !== undefined && device.y !== null) ? device.y : (scale < 0.5 ? 250 : 1180);
     const rotation = device.rotation || 0;
     const frameColor = device.color || '#0f172a';
 
@@ -111,11 +113,27 @@ function renderDeviceMockup(device = {}) {
     const screenH = h - bezel * 2;
     const screenX = -halfW + bezel;
     const screenY = -halfH + bezel;
+    const clipId = `screenClip_${device.id || idx}`;
 
     let cameraSvg = '';
     if (preset.cameraRadius > 0) {
       cameraSvg = `<circle cx="0" cy="${-halfH + preset.cameraY}" r="${preset.cameraRadius}" fill="#030712" stroke="#1f2937" stroke-width="1.5" />`;
     }
+
+    const screenContentSvg = device.image
+      ? `
+        <clipPath id="${clipId}">
+          <rect x="${screenX}" y="${screenY}" width="${screenW}" height="${screenH}" rx="${screenRadius}" ry="${screenRadius}" />
+        </clipPath>
+        <image href="${escapeXml(device.image)}" x="${screenX}" y="${screenY}" width="${screenW}" height="${screenH}" preserveAspectRatio="${device.imageFit === 'contain' ? 'xMidYMid meet' : 'xMidYMid slice'}" clip-path="url(#${clipId})" />
+      `
+      : `
+        <!-- Screen Content Mockup Lines -->
+        <rect x="${screenX + 30}" y="${screenY + 60}" width="${screenW - 60}" height="140" rx="16" fill="rgba(255,255,255,0.08)" />
+        <rect x="${screenX + 30}" y="${screenY + 230}" width="${screenW - 60}" height="80" rx="12" fill="rgba(255,255,255,0.05)" />
+        <rect x="${screenX + 30}" y="${screenY + 330}" width="${screenW - 60}" height="80" rx="12" fill="rgba(255,255,255,0.05)" />
+        <rect x="${screenX + 30}" y="${screenY + 430}" width="${screenW - 60}" height="260" rx="16" fill="rgba(255,255,255,0.06)" />
+      `;
 
     return `
       <g transform="translate(${x}, ${y}) rotate(${rotation}) scale(${scale})">
@@ -125,11 +143,7 @@ function renderDeviceMockup(device = {}) {
         <rect x="${-halfW}" y="${-halfH}" width="${w}" height="${h}" rx="${frameRadius}" ry="${frameRadius}" fill="${frameColor}" stroke="#334155" stroke-width="3" />
         <!-- Phone Screen Glass -->
         <rect x="${screenX}" y="${screenY}" width="${screenW}" height="${screenH}" rx="${screenRadius}" ry="${screenRadius}" fill="#0b0f19" />
-        <!-- Screen Content Mockup Lines -->
-        <rect x="${screenX + 30}" y="${screenY + 60}" width="${screenW - 60}" height="140" rx="16" fill="rgba(255,255,255,0.08)" />
-        <rect x="${screenX + 30}" y="${screenY + 230}" width="${screenW - 60}" height="80" rx="12" fill="rgba(255,255,255,0.05)" />
-        <rect x="${screenX + 30}" y="${screenY + 330}" width="${screenW - 60}" height="80" rx="12" fill="rgba(255,255,255,0.05)" />
-        <rect x="${screenX + 30}" y="${screenY + 430}" width="${screenW - 60}" height="260" rx="16" fill="rgba(255,255,255,0.06)" />
+        ${screenContentSvg}
         <!-- Punch-hole Selfie Camera -->
         ${cameraSvg}
         <!-- Glass Screen Glare Reflection -->
@@ -143,12 +157,48 @@ function renderDeviceMockup(device = {}) {
 }
 
 /**
- * Generates SVG markup for badges, pills, and cards.
+ * Generates SVG markup for badges, pills, cards, standalone text, and image shapes.
  * @param {Object} shape Shape/badge configuration
  * @returns {string} SVG group markup
  */
 function renderShapeElement(shape = {}) {
   try {
+    if (!shape || shape.hidden) return '';
+
+    if (shape.type === 'text') {
+      const tx = shape.x !== undefined ? shape.x : 540;
+      const ty = shape.y !== undefined ? shape.y : 220;
+      const fontSize = Math.round((shape.fontSize || 48) * (shape.scale || 1));
+      const fontWeight = shape.fontWeight || '700';
+      const color = shape.color || '#ffffff';
+      const fontFamily = shape.fontFamily || 'Plus Jakarta Sans';
+      const rotation = shape.rotation || 0;
+      const lines = wrapTextToLines(shape.text || '', 28);
+      if (lines.length === 0) return '';
+      return `
+        <g transform="translate(${tx}, ${ty}) rotate(${rotation})">
+          <text x="0" y="0" text-anchor="middle" fill="${color}" font-family="${fontFamily}, sans-serif" font-size="${fontSize}" font-weight="${fontWeight}">
+            ${lines.map((line, idx) => `<tspan x="0" dy="${idx === 0 ? 0 : fontSize * 1.25}">${escapeXml(line)}</tspan>`).join('\n            ')}
+          </text>
+        </g>
+      `;
+    }
+
+    if (shape.type === 'image' && shape.src) {
+      const ix = shape.x !== undefined ? shape.x : 540;
+      const iy = shape.y !== undefined ? shape.y : 500;
+      const scale = shape.scale || 1;
+      const iw = (shape.width || 200) * scale;
+      const ih = (shape.height || 200) * scale;
+      const rotation = shape.rotation || 0;
+      const opacity = shape.opacity !== undefined ? shape.opacity : 1;
+      return `
+        <g transform="translate(${ix}, ${iy}) rotate(${rotation})" opacity="${opacity}">
+          <image href="${escapeXml(shape.src)}" x="${-iw / 2}" y="${-ih / 2}" width="${iw}" height="${ih}" />
+        </g>
+      `;
+    }
+
     const x = shape.x !== undefined ? shape.x : 540;
     const y = shape.y !== undefined ? shape.y : 105;
     const w = shape.width || 440;
@@ -207,26 +257,31 @@ export function renderScreenToSvg(screen, options = {}) {
 
     // Headline setup
     const headline = screen.headline || {};
-    const hlText = headline.text || '';
+    const hlText = (!headline.hidden && headline.text) ? headline.text : '';
     const hlSize = headline.fontSize || 68;
     const hlWeight = headline.fontWeight || '800';
     const hlColor = headline.color || '#ffffff';
     const hlFont = headline.fontFamily || 'Plus Jakarta Sans';
+    const hlX = headline.x !== undefined ? headline.x : width / 2;
     const hlY = headline.yOffset || 160;
     const hlLines = wrapTextToLines(hlText, 26);
 
     // Subtitle setup
     const subtitle = screen.subtitle || {};
-    const subText = subtitle.text || '';
+    const subText = (!subtitle.hidden && subtitle.text) ? subtitle.text : '';
     const subSize = subtitle.fontSize || 32;
     const subWeight = subtitle.fontWeight || '400';
     const subColor = subtitle.color || '#cbd5e1';
     const subFont = subtitle.fontFamily || 'Inter';
+    const subX = subtitle.x !== undefined ? subtitle.x : width / 2;
     const subY = subtitle.yOffset || (hlY + hlLines.length * hlSize * 1.2 + 20);
     const subLines = wrapTextToLines(subText, 38);
 
-    // Device mockup
-    const deviceSvg = renderDeviceMockup(screen.device || {});
+    // Device mockups (supports multi-device array or single device)
+    const devicesList = Array.isArray(screen.devices)
+      ? screen.devices
+      : (screen.device && !screen.device.deleted ? [screen.device] : []);
+    const deviceSvg = devicesList.filter(d => d && !d.hidden && !d.deleted).map((d, i) => renderDeviceMockup(d, i)).join('\n');
 
     // Shapes and badges
     const shapesSvg = Array.isArray(screen.shapes)
@@ -251,24 +306,24 @@ export function renderScreenToSvg(screen, options = {}) {
   <!-- Shapes & Badges (Background Layers) -->
   ${shapesSvg}
 
-  <!-- Device Mockup Frame -->
+  <!-- Device Mockup Frames -->
   ${deviceSvg}
 
   <!-- Headline Text -->
-  <text x="${width / 2}" y="${hlY}" text-anchor="middle"
+  ${hlLines.length > 0 ? `<text x="${hlX}" y="${hlY}" text-anchor="middle"
         direction="${isRtl ? 'rtl' : 'ltr'}"
         fill="${hlColor}" font-family="${hlFont}, system-ui, sans-serif"
         font-size="${hlSize}" font-weight="${hlWeight}" letter-spacing="-1">
-    ${hlLines.map((line, idx) => `<tspan x="${width / 2}" dy="${idx === 0 ? 0 : hlSize * 1.18}">${escapeXml(line)}</tspan>`).join('\n    ')}
-  </text>
+    ${hlLines.map((line, idx) => `<tspan x="${hlX}" dy="${idx === 0 ? 0 : hlSize * 1.18}">${escapeXml(line)}</tspan>`).join('\n    ')}
+  </text>` : ''}
 
   <!-- Subtitle Text -->
-  <text x="${width / 2}" y="${subY}" text-anchor="middle"
+  ${subLines.length > 0 ? `<text x="${subX}" y="${subY}" text-anchor="middle"
         direction="${isRtl ? 'rtl' : 'ltr'}"
         fill="${subColor}" font-family="${subFont}, system-ui, sans-serif"
         font-size="${subSize}" font-weight="${subWeight}">
-    ${subLines.map((line, idx) => `<tspan x="${width / 2}" dy="${idx === 0 ? 0 : subSize * 1.35}">${escapeXml(line)}</tspan>`).join('\n    ')}
-  </text>
+    ${subLines.map((line, idx) => `<tspan x="${subX}" dy="${idx === 0 ? 0 : subSize * 1.35}">${escapeXml(line)}</tspan>`).join('\n    ')}
+  </text>` : ''}
 </svg>`;
   } catch (error) {
     console.error('Failed to generate SVG for screen:', error);
@@ -291,11 +346,20 @@ export function renderFeatureGraphicToSvg(featureDoc, screens = []) {
     const gradId = 'featureBgGrad';
     const bg = createBackgroundFill(doc.background || { type: 'gradient', color1: '#1e293b', color2: '#0f172a', angle: 135 }, gradId);
 
-    const headline = doc.headline || { text: 'Showcase Your App', color: '#ffffff', fontSize: 48 };
-    const subtitle = doc.subtitle || { text: 'The ultimate experience on Google Play', color: '#cbd5e1', fontSize: 22 };
+    const headline = doc.headline || { text: '', color: '#ffffff', fontSize: 48 };
+    const subtitle = doc.subtitle || { text: '', color: '#cbd5e1', fontSize: 22 };
 
-    const hlLines = wrapTextToLines(headline.text || '', 20);
-    const subLines = wrapTextToLines(subtitle.text || '', 28);
+    const hlLines = (!headline.hidden && headline.text) ? wrapTextToLines(headline.text, 20) : [];
+    const subLines = (!subtitle.hidden && subtitle.text) ? wrapTextToLines(subtitle.text, 28) : [];
+
+    const shapesSvg = Array.isArray(doc.shapes)
+      ? doc.shapes.map(renderShapeElement).join('\n')
+      : '';
+
+    const devicesList = Array.isArray(doc.devices)
+      ? doc.devices
+      : (doc.device && !doc.device.deleted ? [doc.device] : []);
+    const devicesSvg = devicesList.filter(d => d && !d.hidden && !d.deleted).map((d, i) => renderDeviceMockup(d, i)).join('\n');
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
@@ -303,24 +367,35 @@ export function renderFeatureGraphicToSvg(featureDoc, screens = []) {
     <filter id="featShadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.45" />
     </filter>
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.45" />
+    </filter>
+    <filter id="badgeShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
     ${bg.def}
   </defs>
 
   <!-- Background -->
   <rect width="${width}" height="${height}" fill="${bg.fill}" />
 
+  <!-- Shapes & Badges -->
+  ${shapesSvg}
+
   <!-- Left: Promotional Copy -->
+  ${(hlLines.length > 0 || subLines.length > 0) ? `
   <g transform="translate(60, 160)">
-    <text x="0" y="0" fill="${headline.color || '#ffffff'}" font-family="Plus Jakarta Sans, sans-serif" font-size="${headline.fontSize || 48}" font-weight="800">
+    ${hlLines.length > 0 ? `<text x="0" y="0" fill="${headline.color || '#ffffff'}" font-family="${headline.fontFamily || 'Plus Jakarta Sans'}, sans-serif" font-size="${headline.fontSize || 48}" font-weight="${headline.fontWeight || '800'}">
       ${hlLines.map((line, idx) => `<tspan x="0" dy="${idx === 0 ? 0 : 54}">${escapeXml(line)}</tspan>`).join('\n      ')}
-    </text>
-    <text x="0" y="${hlLines.length * 54 + 20}" fill="${subtitle.color || '#cbd5e1'}" font-family="Inter, sans-serif" font-size="${subtitle.fontSize || 22}" font-weight="400">
+    </text>` : ''}
+    ${subLines.length > 0 ? `<text x="0" y="${hlLines.length * 54 + 20}" fill="${subtitle.color || '#cbd5e1'}" font-family="${subtitle.fontFamily || 'Inter'}, sans-serif" font-size="${subtitle.fontSize || 22}" font-weight="${subtitle.fontWeight || '400'}">
       ${subLines.map((line, idx) => `<tspan x="0" dy="${idx === 0 ? 0 : 30}">${escapeXml(line)}</tspan>`).join('\n      ')}
-    </text>
-  </g>
+    </text>` : ''}
+  </g>` : ''}
 
   <!-- Right: Showcase Mockup Arrangement -->
-  <g transform="translate(740, 260) scale(0.26)">
+  ${(doc.showcase && !doc.showcase.hidden) ? `
+  <g transform="translate(${doc.showcase.x ?? 740}, ${doc.showcase.y ?? 260}) rotate(${doc.showcase.rotation || 0}) scale(0.26)">
     <!-- Back Screen (Tilted) -->
     <g transform="translate(-160, 40) rotate(-12)">
       <rect x="-340" y="-700" width="680" height="1400" rx="58" ry="58" fill="#1e293b" stroke="#475569" stroke-width="4" filter="url(#featShadow)" />
@@ -332,7 +407,10 @@ export function renderFeatureGraphicToSvg(featureDoc, screens = []) {
       <rect x="-318" y="-678" width="636" height="1356" rx="44" ry="44" fill="#18181b" />
       <circle cx="0" cy="-652" r="10" fill="#000000" />
     </g>
-  </g>
+  </g>` : ''}
+
+  <!-- Standalone Phone Mockups -->
+  ${devicesSvg}
 </svg>`;
   } catch (error) {
     console.error('Failed to generate SVG for feature graphic:', error);

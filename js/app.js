@@ -276,7 +276,7 @@ class AppScreenStudio {
 
   /**
    * Loads the project from IndexedDB / local cache and continuously auto-saves edits
-   * directly to client-side IndexedDB and localStorage (100% serverless).
+   * to client storage AND the unified MCP live session bridge (/api/projects/sync & /api/events).
    */
   async initProjectSync() {
     const status = document.getElementById('save-status');
@@ -285,10 +285,12 @@ class AppScreenStudio {
     const id = this.projectId;
     if (!id) return;
 
+    this.isApplyingMcpUpdate = false;
+    this.lastSyncedTimestamp = 0;
+
     try {
       const idbProject = await idbGetProject(id);
       const local = getLocalProject(id);
-      // Only restore from IndexedDB if local store was absent or empty
       if (idbProject && (!local || !local.screens || local.screens.length === 0)) {
         this.store.loadProject(idbProject);
         this.store.history = [];
@@ -303,6 +305,7 @@ class AppScreenStudio {
 
     let timer = null;
     const save = async () => {
+      if (this.isApplyingMcpUpdate) return;
       setStatus('Saving…');
       try {
         const state = this.store.getState();
@@ -321,6 +324,27 @@ class AppScreenStudio {
         }
 
         await idbSaveProject(id, state, thumbUrl);
+
+        // Push live state to unified MCP server bridge so AI tools always see current canvas state
+        try {
+          const resp = await fetch('/api/projects/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              projectId: id,
+              boundFile: this.boundFile || null,
+              source: 'web',
+              projectData: state
+            })
+          });
+          if (resp.ok) {
+            const syncRes = await resp.json();
+            if (syncRes.updatedAt) this.lastSyncedTimestamp = syncRes.updatedAt;
+          }
+        } catch (syncErr) {
+          // Offline or static hosting mode — graceful no-op
+        }
+
         setStatus(`✓ Saved ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
       } catch (err) {
         console.warn('Auto-save error:', err);
@@ -328,13 +352,64 @@ class AppScreenStudio {
       }
     };
 
-    // Ensure initial project snapshot and thumbnail are saved
-    setTimeout(save, 500);
+    // Ensure initial project snapshot is synced with MCP server
+    setTimeout(save, 400);
 
     this.store.subscribe(() => {
+      if (this.isApplyingMcpUpdate) return;
       clearTimeout(timer);
-      timer = setTimeout(save, 800);
+      timer = setTimeout(save, 500);
     });
+
+    // Listen for real-time updates triggered by MCP tools via Server-Sent Events
+    if (typeof window.EventSource !== 'undefined') {
+      try {
+        const es = new EventSource('/api/events');
+        const applyRemoteProject = (projectData, label = '⚡ Synced with MCP') => {
+          if (!projectData || !Array.isArray(projectData.screens)) return;
+          this.isApplyingMcpUpdate = true;
+          try {
+            const prevScreenId = this.store.getState().activeScreenId;
+            const prevElemId = this.store.getState().activeElementId;
+            this.store.loadProject(projectData);
+            if (prevScreenId === 'feature' || projectData.screens.some(s => s.id === prevScreenId)) {
+              this.store.state.activeScreenId = prevScreenId;
+            }
+            if (prevElemId) {
+              this.store.state.activeElementId = prevElemId;
+            }
+            saveLocalProject(this.projectId, this.store.getState());
+            idbSaveProject(this.projectId, this.store.getState());
+            this.refreshAllUi(this.store.getState());
+            setStatus(`${label} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+          } finally {
+            setTimeout(() => { this.isApplyingMcpUpdate = false; }, 150);
+          }
+        };
+
+        es.addEventListener('project_updated', (ev) => {
+          try {
+            const payload = JSON.parse(ev.data);
+            if (!payload || !payload.projectData) return;
+            if (payload.updatedAt && payload.updatedAt <= this.lastSyncedTimestamp) return;
+            if (payload.source === 'web' && payload.projectId === this.projectId) return;
+            this.lastSyncedTimestamp = payload.updatedAt || Date.now();
+            applyRemoteProject(payload.projectData, '⚡ Live MCP Update');
+          } catch (e) {}
+        });
+
+        es.addEventListener('file_updated', (ev) => {
+          try {
+            const payload = JSON.parse(ev.data);
+            if (!payload || !payload.projectData) return;
+            if (this.boundFile && payload.filename === this.boundFile) {
+              this.lastSyncedTimestamp = payload.updatedAt || Date.now();
+              applyRemoteProject(payload.projectData, `⚡ Synced ${payload.filename}`);
+            }
+          } catch (e) {}
+        });
+      } catch (e) {}
+    }
   }
 
   /**
@@ -826,7 +901,7 @@ class AppScreenStudio {
       if (e.key === 'Backspace' || e.key === 'Delete') {
         const state = this.store.getState();
         const activeId = state.activeElementId;
-        if (activeId && activeId !== 'showcase') {
+        if (activeId) {
           e.preventDefault();
           deleteElement(this.store, activeId);
         }

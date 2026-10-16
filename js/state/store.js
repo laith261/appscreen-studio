@@ -4,6 +4,7 @@
  */
 
 import { ensureLanguageFontsLoaded, isFontSupportedForLanguage, getDefaultFontForLanguage } from '../features/text/fontManager.js';
+import { ensureScreenDevices } from './layers.js';
 
 export const FEATURE_ID = 'feature';
 
@@ -15,7 +16,7 @@ export function activeDoc(state) {
   return state.activeScreenId === FEATURE_ID ? state.feature : state.screens.find(s => s.id === state.activeScreenId);
 }
 
-/** A fresh, empty 1024 × 500 feature graphic: texts on the left, every screen shown on the right. */
+/** A fresh, empty 1024 × 500 feature graphic. */
 export function makeFeatureDoc() {
   return {
     id: FEATURE_ID,
@@ -23,9 +24,28 @@ export function makeFeatureDoc() {
     background: { type: 'solid', color1: '#1e293b', color2: '#0f172a', angle: 135, solidColor: '#1e293b' },
     headline: { text: '', fontFamily: 'Plus Jakarta Sans', fontSize: 54, fontWeight: '800', color: '#ffffff', align: 'center', lineHeight: 1.15, x: 240, yOffset: 150, maxWidth: 400 },
     subtitle: { text: '', fontFamily: 'Inter', fontSize: 24, fontWeight: '400', color: '#cbd5e1', align: 'center', lineHeight: 1.4, x: 240, yOffset: 300, maxWidth: 380 },
-    showcase: { order: [], hiddenIds: [], x: 724, y: 250, fitWidth: 540, height: 420, gap: 16, radius: 16, shadow: true, rotation: 0 },
+    showcase: null,
+    devices: [],
     shapes: [],
-    layerOrder: ['showcase', 'headline', 'subtitle'] // explicit order, so anything added lands on top
+    layerOrder: ['headline', 'subtitle']
+  };
+}
+
+/** Default properties for a screens showcase element. */
+export function makeDefaultShowcase(width = 1024, height = 500) {
+  return {
+    order: [],
+    hiddenIds: [],
+    x: Math.round(width * 0.7),
+    y: Math.round(height / 2),
+    fitWidth: Math.round(width * 0.52),
+    height: Math.min(420, Math.round(height * 0.84)),
+    gap: 16,
+    radius: 16,
+    shadow: true,
+    rotation: 0,
+    hidden: false,
+    locked: false
   };
 }
 
@@ -41,6 +61,7 @@ export class Store {
     this.maxHistory = 30;
 
     this.state = this.getDefaultState();
+    this.normalizeScreens(this.state);
   }
 
   /**
@@ -48,6 +69,25 @@ export class Store {
    * @returns {Object} Default project state
    */
   getDefaultState() {
+    const defaultDev = {
+      id: 'device',
+      isDevice: true,
+      type: 'modern_phone',
+      color: '#0f172a',
+      scale: 0.92,
+      x: 540,
+      y: 1180,
+      rotation: 0,
+      shadowColor: 'rgba(0, 0, 0, 0.45)',
+      shadowBlur: 50,
+      shadowOffsetY: 35,
+      image: null,
+      imageFit: 'cover',
+      imageOffsetX: 0,
+      imageOffsetY: 0,
+      imageScale: 1
+    };
+
     const state = {
       projectName: 'My Play Store App',
       canvasPreset: 'phone_standard', // phone_standard (1080x1920), phone_modern (1080x2400), tablet_7 (1200x1920), tablet_10 (1600x2560)
@@ -89,22 +129,8 @@ export class Store {
             lineHeight: 1.4,
             yOffset: 310
           },
-          device: {
-            type: 'modern_phone',
-            color: '#0f172a',
-            scale: 0.92,
-            x: 540,
-            y: 1180,
-            rotation: 0,
-            shadowColor: 'rgba(0, 0, 0, 0.45)',
-            shadowBlur: 50,
-            shadowOffsetY: 35,
-            image: null,
-            imageFit: 'cover',
-            imageOffsetX: 0,
-            imageOffsetY: 0,
-            imageScale: 1
-          },
+          device: defaultDev,
+          devices: [defaultDev],
           shapes: []
         }
       ]
@@ -346,6 +372,7 @@ export class Store {
       newScreen.name = `Screen ${newIndex}: Feature`;
       newScreen.headline.text = `Amazing Feature ${newIndex}`;
       newScreen.subtitle.text = `Highlight what makes your app unique and powerful.`;
+      ensureScreenDevices(newScreen, state.width);
       state.screens.push(newScreen);
       state.activeScreenId = newScreen.id;
       state.activeElementId = null;
@@ -363,6 +390,7 @@ export class Store {
       const clone = JSON.parse(JSON.stringify(screen));
       clone.id = `screen-${Date.now()}`;
       clone.name = `${screen.name} (Copy)`;
+      ensureScreenDevices(clone, state.width);
       const index = state.screens.findIndex(s => s.id === screenId);
       state.screens.splice(index + 1, 0, clone);
       state.activeScreenId = clone.id;
@@ -395,6 +423,39 @@ export class Store {
   }
 
   /**
+   * Inspects and normalizes screens to enforce device coordinates, id, isDevice,
+   * and ensure the devices array exists and contains the primary device.
+   * @param {Object} state
+   */
+  normalizeScreens(state) {
+    if (!state) return;
+    const width = state.width || 1080;
+    const normalize = (screen) => {
+      if (!screen) return;
+      ensureScreenDevices(screen, width);
+    };
+
+    if (Array.isArray(state.screens)) {
+      state.screens.forEach(normalize);
+    }
+    if (state.feature) {
+      normalize(state.feature);
+    }
+    if (state.localeScreens && typeof state.localeScreens === 'object') {
+      Object.values(state.localeScreens).forEach(localeList => {
+        if (Array.isArray(localeList)) {
+          localeList.forEach(normalize);
+        }
+      });
+    }
+    if (state.localeFeature && typeof state.localeFeature === 'object') {
+      Object.values(state.localeFeature).forEach(feat => {
+        if (feat) normalize(feat);
+      });
+    }
+  }
+
+  /**
    * Loads a complete project state (e.g. from JSON file or template).
    * @param {Object} projectData
    */
@@ -412,6 +473,7 @@ export class Store {
         state.feature = makeFeatureDoc();
         state.localeFeature = {};
       }
+      this.normalizeScreens(state);
     });
   }
 }

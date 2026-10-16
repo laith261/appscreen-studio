@@ -6,33 +6,83 @@
 const FIXED_LAYERS = ['device', 'showcase', 'headline', 'subtitle'];
 
 /**
- * Ensures screen.devices array is initialized and kept synchronized with screen.device.
+ * Ensures screen.devices array is initialized and kept synchronized with screen.device,
+ * and enforces valid default coordinates (x = canvasWidth / 2, y = 1180).
  * @param {Object} screen
+ * @param {number} [canvasWidth=1080]
  * @returns {Array<Object>} List of device objects on this screen
  */
-export function ensureScreenDevices(screen) {
+export function ensureScreenDevices(screen, canvasWidth = 1080) {
   if (!screen) return [];
-  if (!screen.devices) {
-    if (screen.device) {
+  const isFeature = screen.id === 'feature' || screen.height === 500;
+  const defaultX = isFeature ? 512 : (canvasWidth || screen.width || 1080) / 2;
+  const defaultY = isFeature ? 250 : 1180;
+  const defaultScale = isFeature ? 0.28 : 0.92;
+
+  const fixDeviceBounds = (d) => {
+    if (!d) return;
+    d.isDevice = true;
+    if (d.x === undefined || d.x === null) d.x = defaultX;
+    if (d.y === undefined || d.y === null) d.y = defaultY;
+    if (d.scale === undefined || d.scale === null) d.scale = defaultScale;
+    if (isFeature) {
+      if (d.y > 550) d.y = defaultY;
+      if (d.scale > 0.65) d.scale = defaultScale;
+    }
+  };
+
+  if (!screen.devices || !Array.isArray(screen.devices)) {
+    if (screen.device && !screen.device.deleted) {
       if (!screen.device.id) screen.device.id = 'device';
-      screen.device.isDevice = true;
+      fixDeviceBounds(screen.device);
       screen.devices = [screen.device];
     } else {
       screen.devices = [];
+      screen.device = null;
     }
   } else {
-    screen.devices.forEach((d, i) => {
-      if (!d.id) d.id = i === 0 ? 'device' : `device-${Date.now()}-${i}`;
-      d.isDevice = true;
-    });
-    if (!screen.device && screen.devices.length > 0) {
-      screen.device = screen.devices[0];
-    } else if (screen.device && screen.devices.length > 0) {
-      const primary = screen.devices.find(d => d.id === 'device') || screen.devices[0];
-      screen.device = primary;
+    if (screen.devices.length === 0) {
+      if (screen.device && !screen.device.deleted && !isFeature) {
+        if (!screen.device.id) screen.device.id = 'device';
+        fixDeviceBounds(screen.device);
+        screen.devices.push(screen.device);
+      } else {
+        screen.device = null;
+      }
+    } else {
+      const seen = new Set();
+      screen.devices = screen.devices.filter(d => {
+        if (!d || d.deleted) return false;
+        const key = d.id || d;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      if (screen.devices.length === 1) {
+        screen.devices[0].id = 'device';
+      } else {
+        screen.devices.forEach((d, i) => {
+          if (!d.id) d.id = i === 0 ? 'device' : `device-${Date.now()}-${i}`;
+        });
+      }
+
+      screen.devices.forEach(fixDeviceBounds);
+      screen.device = screen.devices.find(d => d.id === 'device') || screen.devices[0] || null;
     }
   }
+
   return screen.devices;
+}
+
+/**
+ * Normalizes a screen object to guarantee device coordinates, IDs, and devices array.
+ * @param {Object} screen
+ * @param {number} [canvasWidth=1080]
+ */
+export function normalizeScreen(screen, canvasWidth = 1080) {
+  if (!screen) return;
+  ensureScreenDevices(screen, canvasWidth);
 }
 
 /**
@@ -63,16 +113,27 @@ export function getLayerOrder(screen) {
   ensureScreenDevices(screen);
 
   const shapeIds = (screen.shapes || []).map(s => s.id).filter(Boolean);
-  const extraDeviceIds = (screen.devices || []).map(d => d.id).filter(id => id && id !== 'device');
-  const all = [...shapeIds, ...extraDeviceIds, ...FIXED_LAYERS.filter(id => screen[id])];
+  const deviceIds = (screen.devices && screen.devices.length > 0)
+    ? screen.devices.filter(d => !d.deleted).map(d => d.id).filter(Boolean)
+    : (screen.device && !screen.device.deleted ? ['device'] : []);
+  const otherFixed = ['showcase', 'headline', 'subtitle'].filter(id => screen[id]);
+  const all = [...shapeIds, ...deviceIds, ...otherFixed];
+
   if (!screen.layerOrder) return all;
-  const kept = screen.layerOrder.filter(id => all.includes(id));
+  const validDeviceIds = new Set(deviceIds);
+  const kept = screen.layerOrder.filter(id => {
+    if (id === 'device' || id.startsWith('device-')) {
+      return validDeviceIds.has(id);
+    }
+    return all.includes(id);
+  });
   return [...kept, ...all.filter(id => !kept.includes(id))];
 }
 
 /** Returns the object behind a layer id (device / headline / subtitle object, or the shape). */
 export function getLayerItem(screen, id) {
   if (!id || !screen) return null;
+  ensureScreenDevices(screen);
   if (id === 'device') {
     return screen.devices?.[0] || screen.device;
   }

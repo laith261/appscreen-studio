@@ -104,8 +104,14 @@ export function renderDevice(ctx, device, loadedImage = null) {
   const type = device.type || 'modern_phone';
   const preset = DEVICE_PRESETS[type] || DEVICE_PRESETS.modern_phone;
 
+  const defaultX = (ctx && ctx.canvas && ctx.canvas.width) ? (ctx.canvas.width / 2) : 540;
+  const isFeatureCanvas = (ctx && ctx.canvas && ctx.canvas.height && ctx.canvas.height < 800);
+  const defaultY = isFeatureCanvas ? Math.round(ctx.canvas.height / 2) : 1180;
+  const posX = (device.x !== undefined && device.x !== null) ? device.x : defaultX;
+  const posY = (device.y !== undefined && device.y !== null) ? device.y : defaultY;
+
   ctx.save();
-  ctx.translate(device.x, device.y);
+  ctx.translate(posX, posY);
 
   if (device.rotation) {
     ctx.rotate((device.rotation * Math.PI) / 180);
@@ -347,14 +353,18 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
  * @returns {boolean}
  */
 export function isPointInsideDevice(device, px, py) {
+  if (!device) return false;
   const type = device.type || 'modern_phone';
   const preset = DEVICE_PRESETS[type] || DEVICE_PRESETS.modern_phone;
   const scale = device.scale || 1;
   const w = preset.width * scale;
   const h = preset.height * scale;
 
-  let dx = px - device.x;
-  let dy = py - device.y;
+  const posX = (device.x !== undefined && device.x !== null) ? device.x : 540;
+  const posY = (device.y !== undefined && device.y !== null) ? device.y : (scale < 0.5 ? 250 : 1180);
+
+  let dx = px - posX;
+  let dy = py - posY;
 
   if (device.rotation) {
     const rad = (-device.rotation * Math.PI) / 180;

@@ -17,6 +17,7 @@ import { guardedRender } from './renderGuard.js';
 import { activeDoc, FEATURE_ID } from '../state/store.js';
 import { docSize } from '../canvas/compose.js';
 import { customAlert, customConfirm, customPrompt } from './dialog.js';
+import { addShowcaseElement, deleteElement } from './contextMenu.js';
 
 export class LeftDrawer {
   /**
@@ -697,11 +698,46 @@ export class LeftDrawer {
       <input type="file" id="drawer-file-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden" />
 
       ${isFeature ? `
-        <!-- Feature Graphic Dedicated Image & Logo Uploader -->
+        <!-- Feature Graphic Dedicated Showcase & Image Controls -->
         <div class="mb-4 p-3.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-indigo-400" style="font-size:20px;">featured_video</span>
+              <h4 class="text-sm font-bold text-slate-100 mb-0">Screens Showcase</h4>
+            </div>
+            ${screen.showcase ? `
+              <span class="text-[10px] bg-emerald-500/20 text-emerald-300 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">Active</span>
+            ` : `
+              <span class="text-[10px] bg-slate-700/60 text-slate-400 font-medium px-2 py-0.5 rounded-full">Not Added</span>
+            `}
+          </div>
+          <p class="text-xs text-slate-300 mb-3">
+            ${screen.showcase
+              ? 'Your app screens are showcased in a carousel layout on the banner.'
+              : 'Add a mockup carousel showing all your project screens side-by-side on this banner.'}
+          </p>
+
+          ${screen.showcase ? `
+            <div class="grid grid-cols-2 gap-2 mb-1">
+              <button type="button" class="btn btn-outline btn-xs" id="btn-configure-showcase">
+                <span class="material-symbols-outlined" style="font-size:14px;">tune</span> Settings
+              </button>
+              <button type="button" class="btn btn-danger btn-xs" id="btn-remove-showcase">
+                <span class="material-symbols-outlined" style="font-size:14px;">delete</span> Remove
+              </button>
+            </div>
+          ` : `
+            <button type="button" class="btn btn-primary btn-sm w-full flex items-center justify-center gap-1.5 py-2 font-bold mb-1" id="btn-add-showcase">
+              <span class="material-symbols-outlined" style="font-size:16px;">add</span> Add Screens Showcase
+            </button>
+          `}
+        </div>
+
+        <!-- Feature Graphic Dedicated Image & Logo Uploader -->
+        <div class="mb-4 p-3.5 rounded-xl border border-slate-700/60 bg-slate-800/40">
           <div class="flex items-center gap-2 mb-1.5">
-            <span class="material-symbols-outlined text-indigo-400" style="font-size:20px;">featured_video</span>
-            <h4 class="text-sm font-bold text-slate-100 mb-0">Feature Graphic (1024 × 500)</h4>
+            <span class="material-symbols-outlined text-indigo-400" style="font-size:20px;">add_photo_alternate</span>
+            <h4 class="text-sm font-bold text-slate-100 mb-0">Banner Images & Logos</h4>
           </div>
           <p class="text-xs text-slate-300 mb-3">Add logos, app icons, 3D badges, or hero graphics directly to this banner.</p>
 
@@ -712,7 +748,7 @@ export class LeftDrawer {
           </label>
 
           <input type="file" id="drawer-feature-image-file" accept="image/*" class="hidden" />
-          <button type="button" class="btn btn-primary btn-sm w-full flex items-center justify-center gap-1.5 py-2 font-bold" id="drawer-feature-add-image">
+          <button type="button" class="btn btn-outline btn-sm w-full flex items-center justify-center gap-1.5 py-2 font-bold" id="drawer-feature-add-image">
             <span class="material-symbols-outlined" style="font-size:16px;">add_photo_alternate</span> Add Image / Logo to Banner
           </button>
         </div>
@@ -853,6 +889,18 @@ export class LeftDrawer {
       };
     }
 
+    wrap.querySelector('#btn-add-showcase')?.addEventListener('click', () => {
+      addShowcaseElement(this.store);
+      this.renderDrawerContent();
+    });
+    wrap.querySelector('#btn-configure-showcase')?.addEventListener('click', () => {
+      this.store.setActiveElement('showcase');
+    });
+    wrap.querySelector('#btn-remove-showcase')?.addEventListener('click', () => {
+      deleteElement(this.store, 'showcase');
+      this.renderDrawerContent();
+    });
+
     container.appendChild(wrap);
   }
 
@@ -887,9 +935,44 @@ export class LeftDrawer {
     const wrap = document.createElement('div');
     wrap.className = 'drawer-section';
     wrap.innerHTML = `
+      ${screen.id === FEATURE_ID ? `
+        <div class="mb-4 p-3.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-indigo-400" style="font-size:20px;">featured_video</span>
+              <h4 class="text-sm font-bold text-slate-100 mb-0">Screens Showcase</h4>
+            </div>
+            ${screen.showcase ? `
+              <span class="text-[10px] bg-emerald-500/20 text-emerald-300 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">Active</span>
+            ` : `
+              <span class="text-[10px] bg-slate-700/60 text-slate-400 font-medium px-2 py-0.5 rounded-full">Not Added</span>
+            `}
+          </div>
+          <p class="text-xs text-slate-300 mb-3">
+            ${screen.showcase
+              ? 'Your app screens are showcased in a carousel layout on the banner.'
+              : 'Add a mockup carousel showing all your project screens side-by-side on this banner.'}
+          </p>
+          ${screen.showcase ? `
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" class="btn btn-outline btn-xs" id="frame-showcase-configure">
+                <span class="material-symbols-outlined" style="font-size:14px;">tune</span> Settings
+              </button>
+              <button type="button" class="btn btn-danger btn-xs" id="frame-showcase-remove">
+                <span class="material-symbols-outlined" style="font-size:14px;">delete</span> Remove
+              </button>
+            </div>
+          ` : `
+            <button type="button" class="btn btn-primary btn-sm w-full flex items-center justify-center gap-1.5 py-2 font-bold" id="frame-showcase-add">
+              <span class="material-symbols-outlined" style="font-size:16px;">add</span> Add Screens Showcase
+            </button>
+          `}
+        </div>
+      ` : ''}
+
       <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-700/50">
         <div>
-          <span class="text-xs text-slate-200 font-semibold">Phone Frames (${visibleDevices.length})</span>
+          <span class="text-xs text-slate-200 font-semibold">${screen.id === FEATURE_ID ? 'Individual Phone Frames' : 'Phone Frames'} (${visibleDevices.length})</span>
           <div class="text-[11px] text-slate-400">Add multiple devices to one screen</div>
         </div>
         <button type="button" class="btn btn-primary btn-xs" id="frame-add-new-btn"><span class="material-symbols-outlined" style="font-size:14px;">add</span> Add Frame</button>
@@ -908,7 +991,14 @@ export class LeftDrawer {
         </div>
       ` : ''}
 
-      ${dev.hidden ? `
+      ${allDevices.length === 0 ? `
+        <div class="mb-4 p-4 rounded-xl border border-dashed border-slate-700 bg-slate-800/40 text-center">
+          <div class="material-symbols-outlined text-slate-400 mb-1" style="font-size:32px;">smartphone</div>
+          <div class="text-xs font-semibold text-slate-200 mb-1">${screen.id === FEATURE_ID ? 'No Phone Frames on Banner' : 'No Phone Frames'}</div>
+          <div class="text-[11px] text-slate-400 mb-3">${screen.id === FEATURE_ID ? 'Add an individual phone mockup to place a screenshot directly on this banner.' : 'Click below to add a phone mockup frame to this screen.'}</div>
+          <button type="button" class="btn btn-primary btn-sm w-full flex items-center justify-center gap-1.5 py-2 font-bold" id="frame-add-first-btn"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add Phone Frame</button>
+        </div>
+      ` : (dev.hidden ? `
         <div class="mb-4 p-3 rounded-xl border border-dashed border-amber-500/40 bg-amber-500/10 text-center">
           <div class="text-xs font-semibold text-amber-200 mb-1">Frame Removed from Screen</div>
           <div class="text-[11px] text-amber-300/80 mb-2.5">This device mockup is currently deleted or hidden.</div>
@@ -919,7 +1009,7 @@ export class LeftDrawer {
           <span class="text-xs text-slate-400">Editing: <strong>${dev.id === 'device' && allDevices.length === 1 ? 'Primary Frame' : `Frame ${(allDevices.findIndex(d => d.id === dev.id) + 1) || 1}`}</strong></span>
           <button type="button" class="btn btn-danger btn-xs" id="frame-remove-btn" title="Remove this frame"><span class="material-symbols-outlined" style="font-size:14px;">delete</span> Remove</button>
         </div>
-      `}
+      `)}
 
       <div class="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200 flex items-start gap-2 mb-3">
         <span class="material-symbols-outlined text-indigo-400 mt-0.5" style="font-size:17px; flex-shrink:0;">tune</span>
@@ -929,8 +1019,10 @@ export class LeftDrawer {
         </div>
       </div>
 
-      <button type="button" class="btn btn-outline btn-sm w-full mb-2" id="frame-duplicate-btn"><span class="material-symbols-outlined" style="font-size:15px;">content_copy</span> Duplicate Selected Frame</button>
-      <button type="button" class="btn btn-outline btn-sm w-full" id="frame-apply-all">Apply this frame style to all screens</button>
+      ${allDevices.length > 0 ? `
+        <button type="button" class="btn btn-outline btn-sm w-full mb-2" id="frame-duplicate-btn"><span class="material-symbols-outlined" style="font-size:15px;">content_copy</span> Duplicate Selected Frame</button>
+        <button type="button" class="btn btn-outline btn-sm w-full" id="frame-apply-all">Apply this frame style to all screens</button>
+      ` : ''}
     `;
 
     const setDevice = (fn) => this.store.update(state => {
@@ -960,22 +1052,46 @@ export class LeftDrawer {
         const sc = activeDoc(state);
         if (!sc) return;
         ensureScreenDevices(sc);
+        const isFeature = sc.id === FEATURE_ID;
+        const { width: docW, height: docH } = docSize(state, sc);
         const count = (sc.devices || []).length;
-        const offsetX = count % 2 === 1 ? 220 : -220;
-        const offsetY = (count * 25) % 100;
         const baseDev = sc.devices?.[0] || sc.device || {};
-        const newId = `device-${Date.now()}`;
+        const newId = count === 0 ? 'device' : `device-${Date.now()}`;
+
+        let newScale, newX, newY, rot;
+        if (isFeature) {
+          newScale = count === 0 ? 0.28 : Math.min(baseDev.scale || 0.28, 0.35);
+          if (count === 0) {
+            const hasCopy = (sc.headline?.text && sc.headline.text.trim()) || (sc.subtitle?.text && sc.subtitle.text.trim());
+            newX = hasCopy ? 700 : Math.round(docW / 2);
+            newY = Math.round(docH / 2);
+            rot = 0;
+          } else {
+            const offset = count % 2 === 1 ? 160 : -160;
+            newX = Math.max(160, Math.min(docW - 160, Math.round((baseDev.x ?? 700) + offset)));
+            newY = Math.round(docH / 2 + ((count * 15) % 40 - 20));
+            rot = count % 2 === 1 ? 6 : -6;
+          }
+        } else {
+          const offsetX = count % 2 === 1 ? 220 : -220;
+          const offsetY = (count * 25) % 100;
+          newScale = Math.max(0.65, (baseDev.scale || 0.92) * 0.92);
+          newX = Math.round((baseDev.x || 540) + offsetX);
+          newY = Math.round((baseDev.y || 1180) + offsetY);
+          rot = count % 2 === 1 ? 4 : -4;
+        }
+
         const newDev = {
           id: newId,
           type: baseDev.type || 'modern_phone',
           color: baseDev.color || '#0f172a',
-          scale: Math.max(0.65, (baseDev.scale || 0.92) * 0.92),
-          x: Math.round((baseDev.x || 540) + offsetX),
-          y: Math.round((baseDev.y || 1180) + offsetY),
-          rotation: count % 2 === 1 ? 4 : -4,
+          scale: newScale,
+          x: newX,
+          y: newY,
+          rotation: rot,
           shadowColor: 'rgba(0, 0, 0, 0.45)',
-          shadowBlur: 45,
-          shadowOffsetY: 30,
+          shadowBlur: isFeature ? 25 : 45,
+          shadowOffsetY: isFeature ? 15 : 30,
           image: null,
           imageFit: 'cover',
           imageOffsetX: 0,
@@ -986,12 +1102,15 @@ export class LeftDrawer {
         };
         sc.devices = sc.devices || [];
         sc.devices.push(newDev);
+        sc.device = sc.devices[0];
         if (sc.layerOrder) sc.layerOrder.push(newId);
         state.activeElementId = newId;
       });
+      this.renderDrawerContent();
     };
 
     wrap.querySelector('#frame-add-new-btn')?.addEventListener('click', addNewFrame);
+    wrap.querySelector('#frame-add-first-btn')?.addEventListener('click', addNewFrame);
 
     wrap.querySelector('#frame-duplicate-btn')?.addEventListener('click', () => {
       this.store.update(state => {
@@ -1000,12 +1119,15 @@ export class LeftDrawer {
         ensureScreenDevices(sc);
         const srcDev = getLayerItem(sc, activeDevId) || sc.device;
         if (!srcDev) return;
+        const isFeature = sc.id === FEATURE_ID;
+        const defaultY = isFeature ? 250 : 1180;
+        const defaultX = isFeature ? 512 : 540;
         const newId = `device-${Date.now()}`;
         const newDev = {
           ...JSON.parse(JSON.stringify(srcDev)),
           id: newId,
-          x: Math.round((srcDev.x || 540) + 70),
-          y: Math.round((srcDev.y || 1180) + 40),
+          x: Math.round((srcDev.x || defaultX) + (isFeature ? 40 : 70)),
+          y: Math.round((srcDev.y || defaultY) + (isFeature ? 20 : 40)),
           hidden: false,
           isDevice: true
         };
@@ -1014,6 +1136,7 @@ export class LeftDrawer {
         if (sc.layerOrder) sc.layerOrder.push(newId);
         state.activeElementId = newId;
       });
+      this.renderDrawerContent();
     });
 
     wrap.querySelector('#frame-restore-btn')?.addEventListener('click', () => {
@@ -1031,53 +1154,44 @@ export class LeftDrawer {
         }
         state.activeElementId = targetDev?.id || 'device';
       });
+      this.renderDrawerContent();
     });
 
     wrap.querySelector('#frame-remove-btn')?.addEventListener('click', () => {
-      this.store.update(state => {
-        const sc = activeDoc(state);
-        if (!sc) return;
-        ensureScreenDevices(sc);
-        if (activeDevId === 'device' && (!sc.devices || sc.devices.length <= 1)) {
-          if (sc.device) {
-            sc.device.hidden = true;
-            sc.device.deleted = true;
-          }
-        } else {
-          if (sc.devices) {
-            sc.devices = sc.devices.filter(d => d.id !== activeDevId);
-            if (sc.device?.id === activeDevId) {
-              sc.device = sc.devices[0] || null;
-            }
-          } else if (sc.device) {
-            sc.device.hidden = true;
-            sc.device.deleted = true;
-          }
-        }
-        if (sc.layerOrder) {
-          sc.layerOrder = sc.layerOrder.filter(id => id !== activeDevId);
-        }
-        if (state.activeElementId === activeDevId) {
-          state.activeElementId = null;
-        }
-      });
+      deleteElement(this.store, activeDevId);
+      this.renderDrawerContent();
     });
 
-    wrap.querySelector('#frame-apply-all').onclick = () => {
-      this.store.update(state => {
-        state.screens.forEach(sc => {
-          ensureScreenDevices(sc);
-          (sc.devices || []).forEach(d => {
-            d.type = dev.type;
-            d.color = dev.color;
+    const applyAllBtn = wrap.querySelector('#frame-apply-all');
+    if (applyAllBtn) {
+      applyAllBtn.onclick = () => {
+        this.store.update(state => {
+          state.screens.forEach(sc => {
+            ensureScreenDevices(sc);
+            (sc.devices || []).forEach(d => {
+              d.type = dev.type;
+              d.color = dev.color;
+            });
+            if (sc.device) {
+              sc.device.type = dev.type;
+              sc.device.color = dev.color;
+            }
           });
-          if (sc.device) {
-            sc.device.type = dev.type;
-            sc.device.color = dev.color;
-          }
         });
-      });
-    };
+      };
+    }
+
+    wrap.querySelector('#frame-showcase-add')?.addEventListener('click', () => {
+      addShowcaseElement(this.store);
+      this.renderDrawerContent();
+    });
+    wrap.querySelector('#frame-showcase-configure')?.addEventListener('click', () => {
+      this.store.setActiveElement('showcase');
+    });
+    wrap.querySelector('#frame-showcase-remove')?.addEventListener('click', () => {
+      deleteElement(this.store, 'showcase');
+      this.renderDrawerContent();
+    });
 
     container.appendChild(wrap);
   }
@@ -1287,10 +1401,17 @@ export class LeftDrawer {
    * Tab 4: Ready Shapes & Badges
    */
   renderShapesTab(container) {
+    const screen = this.store.getActiveScreen();
     const wrap = document.createElement('div');
     wrap.className = 'drawer-section';
 
     wrap.innerHTML = `
+      ${screen?.id === FEATURE_ID && !screen?.showcase ? `
+        <button type="button" class="btn btn-outline btn-sm w-full mb-3 flex items-center justify-center gap-1.5 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/20 font-bold" id="drawer-shapes-add-showcase">
+          <span class="material-symbols-outlined" style="font-size:16px;">featured_video</span> + Add Screens Showcase to Banner
+        </button>
+      ` : ''}
+
       <input type="file" accept="image/*" class="hidden" id="drawer-add-image-file" />
       <button type="button" class="btn btn-primary btn-sm w-full mb-2 flex items-center justify-center gap-1.5" id="drawer-add-image"><span class="material-symbols-outlined" style="font-size:16px;">add_photo_alternate</span> Add image from computer</button>
       <label class="flex items-center gap-2 text-xs text-slate-300 mb-3 cursor-pointer select-none px-1">
@@ -1308,6 +1429,11 @@ export class LeftDrawer {
 
       <div class="shape-drawer-grid" id="drawer-shape-grid"></div>
     `;
+
+    wrap.querySelector('#drawer-shapes-add-showcase')?.addEventListener('click', () => {
+      addShowcaseElement(this.store);
+      this.renderDrawerContent();
+    });
 
     const addImageFile = wrap.querySelector('#drawer-add-image-file');
     wrap.querySelector('#drawer-add-image').onclick = () => addImageFile.click();
@@ -1375,8 +1501,18 @@ export class LeftDrawer {
       if (id === 'headline' || id === 'subtitle') {
         if (!item.text || !item.text.trim()) return false;
       }
-      if (id === 'device' || id.startsWith('device-') || item.isDevice) {
-        if (item.hidden || item.deleted) return false;
+      if (id === 'showcase') {
+        if (!screen.showcase || item.hidden || item.deleted) return false;
+      }
+      if (id === 'device') {
+        if (screen.devices && screen.devices.length > 0) {
+          return screen.devices.some(d => d.id === 'device' && !d.hidden && !d.deleted);
+        }
+        return !!(screen.device && !screen.device.hidden && !screen.device.deleted);
+      }
+      if (id.startsWith('device-') || item.isDevice) {
+        const d = (screen.devices || []).find(dev => dev.id === id) || (item.isDevice ? item : null);
+        return !!(d && !d.hidden && !d.deleted);
       }
       return true;
     };
@@ -1387,11 +1523,26 @@ export class LeftDrawer {
     if (topFirst.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'p-6 text-center text-xs text-slate-400';
-      empty.innerHTML = `
-        <div style="font-size:28px; margin-bottom:8px;"><span class="material-symbols-outlined" style="font-size:32px;">layers</span></div>
-        <div style="font-weight:600; margin-bottom:4px; color:var(--text, #f1f5f9);">No Active Layers</div>
-        <p>Add a phone frame, text, or shapes to see them listed here.</p>
-      `;
+      if (screen.id === FEATURE_ID) {
+        empty.innerHTML = `
+          <div style="font-size:28px; margin-bottom:8px;"><span class="material-symbols-outlined" style="font-size:32px;">featured_video</span></div>
+          <div style="font-weight:600; margin-bottom:4px; color:var(--text, #f1f5f9);">No Active Layers</div>
+          <p style="margin-bottom:12px;">Add text, shapes, or a screens showcase to your feature graphic.</p>
+          <button class="btn btn-primary btn-sm btn-add-showcase-empty" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:16px;">featured_video</span> Add Screens Showcase
+          </button>
+        `;
+        const btn = empty.querySelector('.btn-add-showcase-empty');
+        if (btn) {
+          btn.onclick = () => addShowcaseElement(this.store);
+        }
+      } else {
+        empty.innerHTML = `
+          <div style="font-size:28px; margin-bottom:8px;"><span class="material-symbols-outlined" style="font-size:32px;">layers</span></div>
+          <div style="font-weight:600; margin-bottom:4px; color:var(--text, #f1f5f9);">No Active Layers</div>
+          <p>Add a phone frame, text, or shapes to see them listed here.</p>
+        `;
+      }
       container.appendChild(empty);
       return;
     }
@@ -1409,7 +1560,7 @@ export class LeftDrawer {
     topFirst.forEach((id, index) => {
       const item = getLayerItem(screen, id);
       const isFixed = isFixedLayer(id);
-      const canDelete = id !== 'showcase';
+      const canDelete = true;
       let icon = 'category';
       let name = item?.label || 'Shape';
 
@@ -1451,37 +1602,7 @@ export class LeftDrawer {
         if (act === 'hide') edit(sc => { const it = getLayerItem(sc, id); if (it) it.hidden = !it.hidden; });
         else if (act === 'lock') edit(sc => { const it = getLayerItem(sc, id); if (it) it.locked = !it.locked; });
         else if (act === 'delete') {
-          this.store.update(s => {
-            const sc = activeDoc(s);
-            if (!sc) return;
-            ensureScreenDevices(sc);
-            if (id === 'device') {
-              if (sc.devices && sc.devices.length > 1) {
-                sc.devices = sc.devices.filter(d => d.id !== 'device');
-                sc.device = sc.devices[0] || null;
-              } else if (sc.device) {
-                sc.device.hidden = true;
-                sc.device.deleted = true;
-              }
-            } else if (id.startsWith('device-')) {
-              if (sc.devices) {
-                sc.devices = sc.devices.filter(d => d.id !== id);
-                if (sc.device?.id === id) sc.device = sc.devices[0] || null;
-              }
-            } else if (id === 'headline' || id === 'subtitle') {
-              if (sc[id]) {
-                sc[id].text = '';
-                sc[id].hidden = true;
-                sc[id].deleted = true;
-              }
-            } else if (sc.shapes) {
-              sc.shapes = sc.shapes.filter(sh => sh.id !== id);
-            }
-            if (sc.layerOrder) {
-              sc.layerOrder = sc.layerOrder.filter(lid => lid !== id);
-            }
-            if (s.activeElementId === id) s.activeElementId = null;
-          });
+          deleteElement(this.store, id);
         } else this.store.setActiveElement(id);
       };
 

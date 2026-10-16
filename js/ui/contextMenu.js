@@ -191,12 +191,15 @@ export function duplicateElement(store, elementId) {
       ensureScreenDevices(sc);
       const srcDev = getLayerItem(sc, elementId) || sc.device;
       if (!srcDev) return;
+      const isFeature = sc.id === FEATURE_ID;
+      const defaultY = isFeature ? 250 : 1180;
+      const defaultX = isFeature ? 512 : 540;
       const newId = `device-${Date.now()}`;
       const newDev = {
         ...JSON.parse(JSON.stringify(srcDev)),
         id: newId,
-        x: Math.round((srcDev.x ?? 540) + 60),
-        y: Math.round((srcDev.y ?? 1180) + 40),
+        x: Math.round((srcDev.x ?? defaultX) + (isFeature ? 40 : 60)),
+        y: Math.round((srcDev.y ?? defaultY) + (isFeature ? 20 : 40)),
         hidden: false,
         deleted: false,
         locked: false,
@@ -261,13 +264,15 @@ export function duplicateElement(store, elementId) {
  * @param {string} elementId
  */
 export function deleteElement(store, elementId) {
-  if (!elementId || elementId === 'showcase') return;
+  if (!elementId) return;
   store.update((state) => {
     const sc = activeDoc(state);
     if (!sc) return;
     ensureScreenDevices(sc);
 
-    if (elementId === 'device') {
+    if (elementId === 'showcase') {
+      sc.showcase = null;
+    } else if (elementId === 'device') {
       if (sc.devices && sc.devices.length > 1) {
         sc.devices = sc.devices.filter((d) => d.id !== 'device');
         sc.device = sc.devices[0] || null;
@@ -442,21 +447,61 @@ export function addDeviceFrame(store) {
     const sc = activeDoc(state);
     if (!sc) return;
     ensureScreenDevices(sc);
+    const isFeature = sc.id === FEATURE_ID;
     const { width: docW, height: docH } = docSize(state, sc);
-    const newId = `device-${Date.now()}`;
+    const count = (sc.devices || []).length;
+    const newId = count === 0 ? 'device' : `device-${Date.now()}`;
+
+    let defaultScale = 0.92;
+    let posX = Math.round(docW / 2);
+    let posY = Math.round(docH / 2 + 100);
+
+    if (isFeature) {
+      defaultScale = 0.28;
+      posY = Math.round(docH / 2); // 250
+      if (count === 0) {
+        const hasCopy = (sc.headline?.text && sc.headline.text.trim()) || (sc.subtitle?.text && sc.subtitle.text.trim());
+        posX = hasCopy ? 700 : Math.round(docW / 2);
+      } else {
+        const baseDev = sc.devices[count - 1] || sc.devices[0];
+        const offset = count % 2 === 1 ? 160 : -160;
+        posX = Math.max(160, Math.min(docW - 160, Math.round((baseDev.x ?? 700) + offset)));
+        posY = Math.round(docH / 2 + ((count * 15) % 40 - 20));
+        defaultScale = baseDev.scale ? Math.min(baseDev.scale, 0.35) : 0.28;
+      }
+    } else {
+      if (count > 0) {
+        const baseDev = sc.devices[count - 1] || sc.devices[0];
+        const offset = count % 2 === 1 ? 180 : -180;
+        posX = Math.round((baseDev.x ?? 540) + offset);
+        posY = Math.round((baseDev.y ?? 1180) + 30);
+        defaultScale = baseDev.scale ?? 0.92;
+      }
+    }
+
     const newDev = {
       id: newId,
       type: 'modern_phone',
       color: '#0f172a',
-      scale: 0.92,
-      x: Math.round(docW / 2),
-      y: Math.round(docH / 2 + 100),
+      scale: defaultScale,
+      x: posX,
+      y: posY,
+      rotation: isFeature ? (count % 2 === 1 ? 6 : -6) : 0,
+      shadowColor: 'rgba(0, 0, 0, 0.45)',
+      shadowBlur: isFeature ? 25 : 45,
+      shadowOffsetY: isFeature ? 15 : 30,
+      image: null,
+      imageFit: 'cover',
+      imageOffsetX: 0,
+      imageOffsetY: 0,
+      imageScale: 1,
       isDevice: true,
       hidden: false,
       deleted: false
     };
     sc.devices = sc.devices || [];
     sc.devices.push(newDev);
+    sc.device = sc.devices[0];
     if (!sc.layerOrder) sc.layerOrder = [...getLayerOrder(sc)];
     if (!sc.layerOrder.includes(newId)) sc.layerOrder.push(newId);
     state.activeElementId = newId;
@@ -547,6 +592,37 @@ export function addTextLayer(store) {
 }
 
 /**
+ * Adds or restores a screens showcase element on the active document.
+ * @param {Object} store
+ */
+export function addShowcaseElement(store) {
+  store.update((state) => {
+    const sc = activeDoc(state);
+    if (!sc) return;
+    const { width: docW, height: docH } = docSize(state, sc);
+    sc.showcase = {
+      order: [],
+      hiddenIds: [],
+      x: Math.round(docW * 0.7),
+      y: Math.round(docH / 2),
+      fitWidth: Math.round(docW * 0.52),
+      height: Math.min(420, Math.round(docH * 0.84)),
+      gap: 16,
+      radius: 16,
+      shadow: true,
+      rotation: 0,
+      hidden: false,
+      locked: false
+    };
+    if (!sc.layerOrder) sc.layerOrder = [...getLayerOrder(sc)];
+    if (!sc.layerOrder.includes('showcase')) {
+      sc.layerOrder.unshift('showcase');
+    }
+    state.activeElementId = 'showcase';
+  });
+}
+
+/**
  * Renames a screen via custom prompt dialog.
  * @param {Object} store
  * @param {string} screenId
@@ -616,7 +692,7 @@ export function buildElementContextMenuItems({ store, elementId, screen, rendere
       icon: 'delete',
       shortcut: 'Del',
       danger: true,
-      disabled: isShowcase,
+      disabled: false,
       action: () => deleteElement(store, elementId)
     },
     { separator: true },
@@ -804,7 +880,19 @@ export function buildElementContextMenuItems({ store, elementId, screen, rendere
 export function buildCanvasContextMenuItems({ store, screen, onFitZoom, onUndo, onRedo }) {
   const isFeature = screen?.id === FEATURE_ID;
   const items = [
-    { header: 'Canvas Background' },
+    { header: isFeature ? 'Feature Graphic Background' : 'Canvas Background' }
+  ];
+
+  if (isFeature && !screen?.showcase) {
+    items.push({
+      id: 'add-showcase',
+      label: 'Add Screens Showcase',
+      icon: 'featured_video',
+      action: () => addShowcaseElement(store)
+    });
+  }
+
+  items.push(
     {
       id: 'add-device',
       label: 'Add Phone Frame',
@@ -824,7 +912,7 @@ export function buildCanvasContextMenuItems({ store, screen, onFitZoom, onUndo, 
       icon: 'add_to_photos',
       action: () => store.addScreen()
     }
-  ];
+  );
 
   if (!isFeature && screen?.id) {
     items.push({

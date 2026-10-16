@@ -44,21 +44,50 @@ export class CanvasRenderer {
 
     this.bindEvents();
     this.store.subscribe(() => this.requestRender());
-    document.fonts.addEventListener('loadingdone', () => this.requestRender());
+    if (typeof document !== 'undefined' && document.fonts?.addEventListener) {
+      document.fonts.addEventListener('loadingdone', () => this.requestRender());
+    }
   }
 
   /**
    * Attaches mouse, touch, drag-and-drop, and clipboard listeners.
    */
   bindEvents() {
-    this.canvas.addEventListener('mousedown', (e) => this.handlePointerDown(e));
-    this.canvas.addEventListener('contextmenu', (e) => this.handleContextMenu(e));
-    window.addEventListener('mousemove', (e) => this.handlePointerMove(e));
-    window.addEventListener('mouseup', () => this.handlePointerUp());
+    if (this.canvas?.addEventListener) {
+      this.canvas.addEventListener('mousedown', (e) => this.handlePointerDown(e));
+      this.canvas.addEventListener('contextmenu', (e) => this.handleContextMenu(e));
+
+      // Touch events support
+      this.canvas.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches.length === 1) {
+          const t = e.touches[0];
+          this.handlePointerDown({ clientX: t.clientX, clientY: t.clientY, button: 0, preventDefault: () => e.preventDefault() });
+        }
+      }, { passive: false });
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('mousemove', (e) => this.handlePointerMove(e));
+      window.addEventListener('mouseup', () => this.handlePointerUp());
+
+      window.addEventListener('touchmove', (e) => {
+        if (this.dragMode && e.touches && e.touches.length === 1) {
+          if (e.cancelable) e.preventDefault();
+          const t = e.touches[0];
+          this.handlePointerMove({ clientX: t.clientX, clientY: t.clientY });
+        }
+      }, { passive: false });
+
+      window.addEventListener('touchend', () => {
+        if (this.dragMode) {
+          this.handlePointerUp();
+        }
+      });
+    }
 
     // File Drag & Drop support on canvas and canvas stage wrapper
-    const stage = document.getElementById('canvas-stage-wrapper') || this.canvas;
-    if (stage && stage !== this.canvas) {
+    const stage = (typeof document !== 'undefined') ? (document.getElementById('canvas-stage-wrapper') || this.canvas) : this.canvas;
+    if (stage && stage !== this.canvas && stage.addEventListener) {
       stage.addEventListener('contextmenu', (e) => {
         if (e.target === stage) {
           this.handleContextMenu(e);
@@ -66,59 +95,63 @@ export class CanvasRenderer {
       });
     }
 
-    ['dragenter', 'dragover'].forEach(evt => {
-      stage.addEventListener(evt, (e) => {
-        e.preventDefault();
-        this.canvas.classList.add('drag-over');
-      });
-      this.canvas.addEventListener(evt, (e) => {
-        e.preventDefault();
-        this.canvas.classList.add('drag-over');
-      });
-    });
-
-    ['dragleave', 'dragend'].forEach(evt => {
-      stage.addEventListener(evt, (e) => {
-        if (e.target === stage) this.canvas.classList.remove('drag-over');
-      });
-      this.canvas.addEventListener(evt, () => {
-        this.canvas.classList.remove('drag-over');
-      });
-    });
-
-    const dropHandler = (e) => {
-      e.preventDefault();
-      this.canvas.classList.remove('drag-over');
-      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
-        this.handleImageFile(e.dataTransfer.files[0]);
-      }
-    };
-
-    stage.addEventListener('drop', dropHandler);
-    this.canvas.addEventListener('drop', dropHandler);
-
-    // Global Drag & Drop safety (prevent browser navigating away if dropped outside canvas)
-    window.addEventListener('dragover', (e) => e.preventDefault());
-    window.addEventListener('drop', (e) => {
-      e.preventDefault();
-      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
-        const file = e.dataTransfer.files[0];
-        if (file.type.startsWith('image/')) {
-          this.handleImageFile(file);
-        }
-      }
-    });
-
-    // Global Clipboard Paste support (Ctrl+V / Cmd+V)
-    window.addEventListener('paste', (e) => {
-      if (e.clipboardData && e.clipboardData.files && e.clipboardData.files[0]) {
-        const file = e.clipboardData.files[0];
-        if (file.type.startsWith('image/')) {
+    if (stage?.addEventListener && this.canvas?.addEventListener) {
+      ['dragenter', 'dragover'].forEach(evt => {
+        stage.addEventListener(evt, (e) => {
           e.preventDefault();
-          this.handleImageFile(file);
+          this.canvas.classList.add('drag-over');
+        });
+        this.canvas.addEventListener(evt, (e) => {
+          e.preventDefault();
+          this.canvas.classList.add('drag-over');
+        });
+      });
+
+      ['dragleave', 'dragend'].forEach(evt => {
+        stage.addEventListener(evt, (e) => {
+          if (e.target === stage) this.canvas.classList.remove('drag-over');
+        });
+        this.canvas.addEventListener(evt, () => {
+          this.canvas.classList.remove('drag-over');
+        });
+      });
+
+      const dropHandler = (e) => {
+        e.preventDefault();
+        this.canvas.classList.remove('drag-over');
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+          this.handleImageFile(e.dataTransfer.files[0]);
         }
-      }
-    });
+      };
+
+      stage.addEventListener('drop', dropHandler);
+      this.canvas.addEventListener('drop', dropHandler);
+    }
+
+    if (typeof window !== 'undefined') {
+      // Global Drag & Drop safety (prevent browser navigating away if dropped outside canvas)
+      window.addEventListener('dragover', (e) => e.preventDefault());
+      window.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+          const file = e.dataTransfer.files[0];
+          if (file.type.startsWith('image/')) {
+            this.handleImageFile(file);
+          }
+        }
+      });
+
+      // Global Clipboard Paste support (Ctrl+V / Cmd+V)
+      window.addEventListener('paste', (e) => {
+        if (e.clipboardData && e.clipboardData.files && e.clipboardData.files[0]) {
+          const file = e.clipboardData.files[0];
+          if (file.type.startsWith('image/')) {
+            e.preventDefault();
+            this.handleImageFile(file);
+          }
+        }
+      });
+    }
   }
 
   /**
@@ -175,7 +208,7 @@ export class CanvasRenderer {
   getElementBox(screen, elementId) {
     if (!screen || !elementId) return null;
     const state = this.store.getState();
-    const { width: docW } = docSize(state, screen);
+    const { width: docW, height: docH } = docSize(state, screen);
 
     const isDev = elementId === 'device' || (typeof elementId === 'string' && elementId.startsWith('device-'));
     if (isDev) {
@@ -186,9 +219,10 @@ export class CanvasRenderer {
         const baseW = preset.width;
         const baseH = preset.height;
         const scale = dev.scale ?? 1;
+        const defaultCy = docH < 800 ? Math.round(docH / 2) : 1180;
         return {
           cx: dev.x ?? (docW / 2),
-          cy: dev.y ?? 1180,
+          cy: dev.y ?? defaultCy,
           baseWidth: baseW,
           baseHeight: baseH,
           width: baseW * scale,
@@ -374,6 +408,8 @@ export class CanvasRenderer {
    */
   handlePointerDown(e) {
     if (e.button === 2) return; // Right-click is delegated to handleContextMenu
+    if (e.button !== 0 && e.button !== undefined) return; // Primary mouse button only
+    if (e.preventDefault) e.preventDefault();
     const { x, y } = this.getCanvasCoords(e.clientX, e.clientY);
     const screen = this.store.getActiveScreen();
     if (!screen) return;
@@ -382,14 +418,15 @@ export class CanvasRenderer {
     this.pointerDownY = y;
     this.hasMovedDistance = false;
 
-    const activeId = this.store.getState().activeElementId;
+    const state = this.store.getState();
+    const activeId = state.activeElementId;
     const currentBox = activeId ? this.getElementBox(screen, activeId) : null;
 
     // 1. Check if clicking on an interactive handle of currently selected box
     if (currentBox) {
       const hitHandle = this.hitTestHandles(currentBox, x, y);
       if (hitHandle) {
-        this.dragSnapshot = JSON.stringify(this.store.getState());
+        this.dragSnapshot = JSON.stringify(state);
         this.dragTarget = activeId;
         this.activeHandle = hitHandle;
         this.dragStartX = x;
@@ -425,7 +462,7 @@ export class CanvasRenderer {
 
     this.store.setActiveElement(hitId);
     const newBox = this.getElementBox(screen, hitId);
-    this.dragSnapshot = JSON.stringify(this.store.getState());
+    this.dragSnapshot = JSON.stringify(state);
     this.dragTarget = hitId;
     this.dragStartX = x;
     this.dragStartY = y;
@@ -434,17 +471,22 @@ export class CanvasRenderer {
 
     const item = getLayerItem(screen, hitId);
     const isText = hitId === 'headline' || hitId === 'subtitle';
-    const state = this.store.getState();
-    const docW = docSize(state, screen).width;
+    const isShowcase = hitId === 'showcase';
+    const { width: docW, height: docH } = docSize(state, screen);
+
+    const isDev = hitId === 'device' || (typeof hitId === 'string' && hitId.startsWith('device-'));
+    const defaultDevY = docH < 800 ? Math.round(docH / 2) : 1180;
+    const defaultItemX = isText ? (item?.x ?? docW / 2) : (isDev || isShowcase ? (item?.x ?? docW / 2) : (item?.x ?? 0));
+    const defaultItemY = isText ? (item?.yOffset ?? (hitId === 'headline' ? 120 : 250)) : (isDev ? (item?.y ?? defaultDevY) : (isShowcase ? (item?.y ?? Math.round(docH / 2)) : (item?.y ?? 0)));
 
     this.initialTransform = {
-      cx: newBox ? newBox.cx : (isText ? (item.x ?? docW / 2) : item.x),
-      cy: newBox ? newBox.cy : (isText ? (item.yOffset ?? (hitId === 'headline' ? 120 : 250)) : item.y),
-      itemX: isText ? (item.x ?? docW / 2) : item.x,
-      itemY: isText ? (item.yOffset ?? (hitId === 'headline' ? 120 : 250)) : item.y,
-      rotation: newBox ? newBox.rotation : (item.rotation || 0),
-      scale: newBox ? newBox.scale : (item.scale || 1),
-      fontSize: item.fontSize,
+      cx: newBox ? newBox.cx : defaultItemX,
+      cy: newBox ? newBox.cy : defaultItemY,
+      itemX: defaultItemX,
+      itemY: defaultItemY,
+      rotation: newBox ? newBox.rotation : (item?.rotation || 0),
+      scale: newBox ? newBox.scale : (item?.scale || 1),
+      fontSize: item?.fontSize,
       type: hitId
     };
   }
@@ -525,6 +567,10 @@ export class CanvasRenderer {
       if (dev) {
         dev.x = Math.round(init.itemX + deltaX);
         dev.y = Math.round(init.itemY + deltaY);
+        if (target === 'device' && screen.device && screen.device !== dev) {
+          screen.device.x = dev.x;
+          screen.device.y = dev.y;
+        }
       }
     } else if (target === 'showcase' && screen.showcase) {
       screen.showcase.x = Math.round(init.itemX + deltaX);
@@ -552,7 +598,7 @@ export class CanvasRenderer {
 
     // Normalize to -180..180
     while (newRotation > 180) newRotation -= 360;
-    while (newRotation < -180) newRotation += 360;
+    while (newRotation < -180) newRotation -= 360;
 
     // Angle snapping to 0, 90, -90, 180 if within 3 degrees
     [0, 45, -45, 90, -90, 180, -180].forEach(snap => {
@@ -562,7 +608,12 @@ export class CanvasRenderer {
     const isDev = target === 'device' || (typeof target === 'string' && target.startsWith('device-'));
     if (isDev) {
       const dev = getLayerItem(screen, target);
-      if (dev) dev.rotation = newRotation;
+      if (dev) {
+        dev.rotation = newRotation;
+        if (target === 'device' && screen.device && screen.device !== dev) {
+          screen.device.rotation = dev.rotation;
+        }
+      }
     } else if (target === 'showcase' && screen.showcase) {
       screen.showcase.rotation = newRotation;
     } else if (target === 'headline' || target === 'subtitle') {
@@ -584,8 +635,11 @@ export class CanvasRenderer {
     if (isDev) {
       const dev = getLayerItem(screen, target);
       if (dev) {
-        const newScale = Math.max(0.2, Math.min(2.0, Number((init.scale * ratio).toFixed(2))));
+        const newScale = Math.max(0.1, Math.min(2.0, Number((init.scale * ratio).toFixed(2))));
         dev.scale = newScale;
+        if (target === 'device' && screen.device && screen.device !== dev) {
+          screen.device.scale = dev.scale;
+        }
       }
     } else if (target === 'showcase' && screen.showcase) {
       const newH = Math.max(100, Math.min(600, Math.round(init.scale * ratio)));

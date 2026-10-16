@@ -116,8 +116,10 @@ function getProjectSchema() {
               }
             },
             device: {
-              type: 'object',
+              type: ['object', 'null'],
               properties: {
+                id: { type: 'string' },
+                isDevice: { type: 'boolean' },
                 type: { type: 'string', enum: ['modern_phone', 'minimal', 'frameless', 'tablet'] },
                 scale: { type: 'number' },
                 x: { type: 'number' },
@@ -127,9 +129,19 @@ function getProjectSchema() {
                 image: { type: ['string', 'null'] }
               }
             },
+            devices: {
+              type: 'array',
+              items: { type: 'object' },
+              description: 'Array of device mockup frames on the screen'
+            },
             shapes: {
               type: 'array',
               items: { type: 'object' }
+            },
+            layerOrder: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Z-index order of layer IDs from bottom to top'
             }
           }
         }
@@ -141,7 +153,15 @@ function getProjectSchema() {
           name: { type: 'string' },
           headline: { type: 'object' },
           subtitle: { type: 'object' },
-          background: { type: 'object' }
+          background: { type: 'object' },
+          showcase: {
+            type: ['object', 'null'],
+            description: 'Optional 3-card screens showcase element on the feature graphic'
+          },
+          device: { type: ['object', 'null'] },
+          devices: { type: 'array', items: { type: 'object' } },
+          shapes: { type: 'array', items: { type: 'object' } },
+          layerOrder: { type: 'array', items: { type: 'string' } }
         }
       }
     }

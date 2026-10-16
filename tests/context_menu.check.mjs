@@ -17,6 +17,7 @@ import {
   addHeadlineText,
   addSubtitleText,
   addTextLayer,
+  addShowcaseElement,
   buildElementContextMenuItems,
   buildCanvasContextMenuItems,
   buildScreenCardContextMenuItems
@@ -209,6 +210,64 @@ console.log('Testing Context Menu & Actions...');
   assert.ok(cardItems.some(i => i.id === 'rename-screen'));
 
   console.log('  ✓ Menu item builders passed');
+}
+
+// 10. Test Feature Graphic & Showcase Element Lifecycle
+{
+  const store = new Store();
+  // Switch to feature graphic
+  store.update(state => {
+    state.activeScreenId = FEATURE_ID;
+  });
+
+  const featureDoc = store.getActiveScreen();
+  assert.equal(featureDoc.id, FEATURE_ID);
+  assert.equal(featureDoc.showcase, null, 'Feature graphic must start empty without showcase');
+
+  // Verify canvas context menu allows adding showcase when empty
+  const emptyCanvasItems = buildCanvasContextMenuItems({
+    store,
+    screen: featureDoc,
+    onFitZoom: () => {},
+    onUndo: () => {},
+    onRedo: () => {}
+  });
+  assert.ok(emptyCanvasItems.some(i => i.id === 'add-showcase'), 'Canvas menu must offer "Add Screens Showcase"');
+
+  // Add showcase element
+  addShowcaseElement(store);
+  const docWithShowcase = store.getActiveScreen();
+  assert.ok(docWithShowcase.showcase, 'Showcase element must now exist');
+  assert.ok(docWithShowcase.layerOrder.includes('showcase'), 'layerOrder must include showcase');
+  assert.equal(store.getState().activeElementId, 'showcase', 'Active element must be showcase');
+
+  // Verify canvas menu no longer offers "Add Screens Showcase"
+  const populatedCanvasItems = buildCanvasContextMenuItems({
+    store,
+    screen: docWithShowcase,
+    onFitZoom: () => {},
+    onUndo: () => {},
+    onRedo: () => {}
+  });
+  assert.ok(!populatedCanvasItems.some(i => i.id === 'add-showcase'), 'Canvas menu should not offer Add Showcase if already present');
+
+  // Verify element context menu for showcase allows deleting
+  const showcaseMenuItems = buildElementContextMenuItems({
+    store,
+    elementId: 'showcase',
+    screen: docWithShowcase,
+    renderer: null
+  });
+  const delShowcaseItem = showcaseMenuItems.find(i => i.id === 'delete');
+  assert.ok(delShowcaseItem, 'Showcase context menu must include delete item');
+
+  // Delete showcase element
+  deleteElement(store, 'showcase');
+  const docAfterDelete = store.getActiveScreen();
+  assert.equal(docAfterDelete.showcase, null, 'Showcase must be null after deletion');
+  assert.ok(!docAfterDelete.layerOrder.includes('showcase'), 'Showcase must be removed from layerOrder');
+  assert.equal(store.getState().activeElementId, null, 'activeElementId should be null after showcase deletion');
+  console.log('  ✓ Feature graphic empty start & showcase element lifecycle passed');
 }
 
 console.log('All context menu checks passed successfully!');
