@@ -432,6 +432,7 @@ export class Store {
     const width = state.width || 1080;
     const normalize = (screen) => {
       if (!screen) return;
+      if (screen.device === null) delete screen.device;
       ensureScreenDevices(screen, width);
     };
 

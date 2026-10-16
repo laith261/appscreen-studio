@@ -38,7 +38,7 @@ export function ensureScreenDevices(screen, canvasWidth = 1080) {
       screen.devices = [screen.device];
     } else {
       screen.devices = [];
-      screen.device = null;
+      delete screen.device;
     }
   } else {
     if (screen.devices.length === 0) {
@@ -47,7 +47,7 @@ export function ensureScreenDevices(screen, canvasWidth = 1080) {
         fixDeviceBounds(screen.device);
         screen.devices.push(screen.device);
       } else {
-        screen.device = null;
+        delete screen.device;
       }
     } else {
       const seen = new Set();
